@@ -16,6 +16,11 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+
+// Verify Firebase initialization
+auth.onAuthStateChanged((user) => {
+  console.log('Auth state changed:', user ? 'logged in' : 'logged out');
+});
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const functions = getFunctions(app);

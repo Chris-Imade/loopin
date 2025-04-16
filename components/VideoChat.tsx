@@ -26,7 +26,10 @@ export const VideoChat = () => {
   }, []);
 
   const initializeAgora = async () => {
-    if (!client || !user || isConnecting) return;
+    if (!client || !user || isConnecting) {
+      console.log('Cannot initialize:', { client, user, isConnecting });
+      return;
+    }
     setIsConnecting(true);
 
     try {
