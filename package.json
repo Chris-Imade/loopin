@@ -9,10 +9,23 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@chakra-ui/react": "^3.16.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@firebase/app": "^0.11.4",
+    "@firebase/auth": "^1.10.0",
+    "@firebase/firestore": "^4.7.10",
+    "@firebase/functions": "^0.12.3",
+    "@firebase/storage": "^0.13.7",
+    "@heroicons/react": "^2.2.0",
+    "agora-rtc-react": "^2.4.0",
+    "agora-rtc-sdk-ng": "^4.23.2",
+    "framer-motion": "^12.7.3",
     "next": "^15.2.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tailwindcss": "^4.0.15"
+    "tailwindcss": "^4.0.15",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@types/node": "^22.13.11",
