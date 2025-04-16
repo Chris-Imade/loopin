@@ -1,18 +1,35 @@
 
 import { useEffect, useState } from 'react';
-import AgoraRTC, { IAgoraRTCClient } from 'agora-rtc-sdk-ng';
 import { useUserStore } from '../store/userStore';
+import dynamic from 'next/dynamic';
 
-const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+// Dynamically import AgoraRTC with no SSR
+const AgoraRTC = dynamic(() => import('agora-rtc-sdk-ng'), {
+  ssr: false,
+});
 
 export const VideoChat = () => {
-  const [localVideoTrack, setLocalVideoTrack] = useState<any>(null);
-  const [remoteVideoTrack, setRemoteVideoTrack] = useState<any>(null);
+  const [client, setClient] = useState(null);
+  const [localVideoTrack, setLocalVideoTrack] = useState(null);
+  const [remoteVideoTrack, setRemoteVideoTrack] = useState(null);
   const { user } = useUserStore();
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const initClient = async () => {
+      const agoraClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+      setClient(agoraClient);
+    };
+
+    initClient();
+  }, []);
+
   const initializeAgora = async () => {
+    if (!client || !user) return;
+
     await client.join(
-      process.env.NEXT_PUBLIC_AGORA_APP_ID!,
+      process.env.NEXT_PUBLIC_AGORA_APP_ID,
       'default-channel',
       null,
       user.uid
@@ -31,14 +48,14 @@ export const VideoChat = () => {
   };
 
   useEffect(() => {
-    if (user) {
+    if (client && user) {
       initializeAgora();
     }
     return () => {
-      client.leave();
+      client?.leave();
       localVideoTrack?.close();
     };
-  }, [user]);
+  }, [client, user]);
 
   return (
     <div className="flex justify-center items-center h-screen">
