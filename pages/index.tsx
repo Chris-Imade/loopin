@@ -1,31 +1,42 @@
+
 import type { NextPage } from "next";
-import Head from "next/head";
+import { Layout } from "../components/Layout";
 import { VideoChat } from "../components/VideoChat";
 import { useUserStore } from "../store/userStore";
+import { Button, Center, Spinner, Text, VStack } from "@chakra-ui/react";
 
 const Home: NextPage = () => {
-  const { user, isLoading } = useUserStore();
+  const { user, isLoading, signIn } = useUserStore();
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <Layout>
+        <Center h="80vh">
+          <Spinner size="xl" />
+        </Center>
+      </Layout>
+    );
   }
 
   if (!user) {
-    return <div>Please sign in to continue</div>;
+    return (
+      <Layout>
+        <Center h="80vh">
+          <VStack spacing={4}>
+            <Text fontSize="xl">Welcome to Social Video Chat</Text>
+            <Button colorScheme="blue" onClick={signIn}>
+              Sign in to continue
+            </Button>
+          </VStack>
+        </Center>
+      </Layout>
+    );
   }
 
   return (
-    <div>
-      <Head>
-        <title>Social Video Chat</title>
-        <meta name="description" content="Modern social video chat app" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-
-      <main>
-        <VideoChat />
-      </main>
-    </div>
+    <Layout>
+      <VideoChat />
+    </Layout>
   );
 };
 
