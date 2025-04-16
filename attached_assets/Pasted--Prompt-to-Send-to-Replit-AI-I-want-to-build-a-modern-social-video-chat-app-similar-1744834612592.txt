@@ -1,0 +1,57 @@
+### 🔧 **Prompt to Send to Replit AI**
+
+> I want to build a **modern social video chat app** similar to Monkey, with the following features:
+>
+> #### 🚀 Core Features:
+> - Real-time **1:1 video chats** (random matchmaking)
+> - Optional **Duo Mode** (two friends can chat with two other users)
+> - Time-limited video sessions (e.g., 15 seconds, with option to extend)
+> - **Swipe to skip**, "match again" feature
+> - Modern and beautiful UI with mobile-first design (React)
+> - User profiles with:
+>   - Profile pic, username, gender, age
+>   - Optional music or bio field
+>   - "Moments" feed to post short video clips or selfies
+> - In-app notifications and online status indicators
+> - Secure reporting/blocking feature for bad actors
+> - A moderation system for content and behavior
+>
+> #### 🧠 AI/Backend:
+> - Use **Firebase Authentication** for login (with Google, Apple, email options)
+> - Store user data in **Firebase Firestore**
+> - Use **Firebase Cloud Functions** to handle real-time matchmaking logic
+> - Integrate **WebRTC** or **Agora.io** SDK for low-latency video calling
+> - Use **Firebase Storage** for saving media moments (images, short videos)
+> - Use **Firestore security rules** to protect user data
+>
+> #### 📱 UI/UX:
+> - Prioritize modern and clean design like TikTok or BeReal
+> - Use smooth transitions between chat sessions
+> - Support dark and light themes
+> - Optimize for both mobile and tablet screens
+>
+> #### ⚙️ Admin/Moderation:
+> - Admin dashboard to view flagged users
+> - Ban/suspend feature
+> - Monitor session logs (no recordings)
+>
+> #### 💰 Pricing Plan (based on niche research):
+> After reviewing apps like Monkey, Azar, and Ablo:
+> **Suggested Freemium Model:**
+> - ✅ **Free Tier**: 
+>   - 30 swipes/day
+>   - Basic profile
+>   - 15-second video chat limit
+> - 💎 **Premium Tier ($5.99/month)**:
+>   - Unlimited swipes
+>   - 60-second chat timer
+>   - Access to Duo Mode
+>   - See who liked you
+>   - Profile boost once/day
+> - 💼 **Creator Tier ($12.99/month)**:
+>   - Unlock ability to stream to public feed
+>   - Pin moments
+>   - Custom profile theming
+>   - Advanced analytics
+>
+> Please generate the code base using Firebase + React or Flutter + WebRTC/Agora SDK with clean structure and modular files. Also include .env example for config.
