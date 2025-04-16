@@ -1,5 +1,5 @@
 
-import create from 'zustand';
+import { create } from 'zustand';
 import { auth } from '../lib/firebase';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 

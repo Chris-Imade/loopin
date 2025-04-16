@@ -20,6 +20,7 @@
     "@heroicons/react": "^2.2.0",
     "agora-rtc-react": "^2.4.0",
     "agora-rtc-sdk-ng": "^4.23.2",
+    "firebase": "^11.6.0",
     "framer-motion": "^12.7.3",
     "next": "^15.2.3",
     "react": "^19.0.0",
