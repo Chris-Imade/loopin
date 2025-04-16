@@ -1,5 +1,6 @@
 
-import { Box, ChakraProvider, Container, extendTheme } from '@chakra-ui/react';
+import { Box, ChakraProvider, Container } from '@chakra-ui/react';
+import { extendTheme } from '@chakra-ui/react';
 import Head from 'next/head';
 
 const theme = extendTheme({
@@ -7,10 +8,10 @@ const theme = extendTheme({
     global: {
       body: {
         bg: 'gray.900',
-        color: 'white',
-      },
-    },
-  },
+        color: 'white'
+      }
+    }
+  }
 });
 
 export const Layout = ({ children }) => {
