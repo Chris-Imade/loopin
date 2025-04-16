@@ -11,6 +11,10 @@ const theme = extendTheme({
         color: 'white'
       }
     }
+  },
+  config: {
+    initialColorMode: 'dark',
+    useSystemColorMode: false
   }
 });
 
