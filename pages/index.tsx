@@ -35,67 +35,47 @@ const Home: NextPage = () => {
   if (!user) {
     return (
       <Layout>
-        <Box
-          minH="90vh"
-          bgGradient={bgGradient}
-          py={20}
-          px={4}
-          position="relative"
-          overflow="hidden"
-        >
-          <Container maxW="container.xl">
-            <Flex
-              direction={{ base: "column", lg: "row" }}
-              align="center"
-              justify="space-between"
-              gap={8}
+        <Flex minH="100vh" direction={{ base: "column", lg: "row" }}>
+            <Box
+              flex="1"
+              bgGradient={bgGradient}
+              py={20}
+              px={8}
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
             >
-              <Box flex="1" maxW={{ base: "100%", lg: "50%" }}>
-                <VStack spacing={8} textAlign="center">
-                  <Heading
-                    fontSize={{ base: "4xl", md: "5xl" }}
-                    fontWeight="bold"
-                    color="white"
-                  >
-                    Connect with People Worldwide
-                  </Heading>
-                  <Text fontSize="xl" color="whiteAlpha.900">
-                    Join our video chat community and make new friends across
-                    the globe
-                  </Text>
-                  <Box
-                    bg={useColorModeValue("white", "gray.800")}
-                    p={8}
-                    rounded="xl"
-                    shadow="2xl"
-                    w="full"
-                  >
-                    <AuthButtons />
-                  </Box>
-                </VStack>
-              </Box>
-              <Box
-                display={{ base: "none", lg: "block" }}
-                flex="1"
-                h="600px"
-                position="relative"
-              >
+              <VStack spacing={8} maxW="500px">
+                <Heading
+                  fontSize={{ base: "4xl", md: "5xl" }}
+                  fontWeight="bold"
+                  color="white"
+                >
+                  Connect with People Worldwide
+                </Heading>
+                <Text fontSize="xl" color="whiteAlpha.900">
+                  Join our video chat community and make new friends across
+                  the globe
+                </Text>
                 <Box
-                  position="absolute"
-                  right="0"
-                  top="50%"
-                  transform="translateY(-50%)"
+                  bg={useColorModeValue("white", "gray.800")}
+                  p={8}
+                  rounded="xl"
+                  shadow="2xl"
                   w="full"
-                  h="full"
-                  bgImage="/vci-image.gif"
-                  bgSize="contain"
-                  bgPosition="center"
-                  bgRepeat="no-repeat"
-                />
-              </Box>
-            </Flex>
-          </Container>
-        </Box>
+                >
+                  <AuthButtons />
+                </Box>
+              </VStack>
+            </Box>
+            <Box
+              display={{ base: "none", lg: "block" }}
+              flex="1"
+              bgImage="/vci-image.gif"
+              bgSize="cover"
+              bgPosition="center"
+            />
+          </Flex>
       </Layout>
     );
   }
