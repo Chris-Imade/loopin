@@ -4,6 +4,7 @@ import { auth } from '../lib/firebase';
 import { 
   signInWithPopup, 
   GoogleAuthProvider,
+  FacebookAuthProvider,
   OAuthProvider,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword
@@ -13,6 +14,7 @@ interface UserState {
   user: any;
   isLoading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signInWithFacebook: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
@@ -31,7 +33,15 @@ export const useUserStore = create<UserState>((set) => ({
       console.error('Google auth error:', error);
     }
   },
-  
+  signInWithFacebook: async () => {
+    try {
+      const provider = new FacebookAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      set({ user: result.user });
+    } catch (error) {
+      console.error('Facebook auth error:', error);
+    }
+  },
   signInWithApple: async () => {
     try {
       const provider = new OAuthProvider('apple.com');

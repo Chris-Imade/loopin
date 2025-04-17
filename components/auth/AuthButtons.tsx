@@ -1,10 +1,11 @@
+
 import { Button, VStack, HStack, Icon, Text, Divider } from '@chakra-ui/react';
-import { FaGoogle, FaApple } from 'react-icons/fa';
+import { FaGoogle, FaFacebook, FaApple } from 'react-icons/fa';
 import { MdEmail } from 'react-icons/md';
 import { useUserStore } from '../../store/userStore';
 
 export const AuthButtons = () => {
-  const { signInWithGoogle, signInWithApple } = useUserStore();
+  const { signInWithGoogle, signInWithFacebook, signInWithApple } = useUserStore();
 
   return (
     <VStack spacing={4} w="full" maxW="md">
@@ -17,7 +18,17 @@ export const AuthButtons = () => {
       >
         Continue with Google
       </Button>
-
+      
+      <Button
+        w="full"
+        leftIcon={<Icon as={FaFacebook} />}
+        onClick={signInWithFacebook}
+        colorScheme="facebook"
+        variant="outline"
+      >
+        Continue with Facebook
+      </Button>
+      
       <Button
         w="full"
         leftIcon={<Icon as={FaApple} />}
