@@ -5,7 +5,10 @@ import dynamic from 'next/dynamic';
 import { Box, Button, Flex, Grid, IconButton, Text, VStack } from '@chakra-ui/react';
 import { PhoneXMarkIcon, VideoCameraIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 
-import AgoraRTC from 'agora-rtc-sdk-ng';
+let AgoraRTC: any;
+if (typeof window !== "undefined") {
+  AgoraRTC = require('agora-rtc-sdk-ng');
+}
 
 export const VideoChat = () => {
   const [client, setClient] = useState(null);
