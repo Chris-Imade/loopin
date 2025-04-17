@@ -14,13 +14,24 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+let app;
+try {
+  app = initializeApp(firebaseConfig);
+} catch (error) {
+  app = getApp();
+}
 
-// Verify Firebase initialization
-auth.onAuthStateChanged((user) => {
-  console.log('Auth state changed:', user ? 'logged in' : 'logged out');
-});
+export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const functions = getFunctions(app);
+
+// Initialize subscription listener
+export const initializeSubscriptionListener = (userId: string) => {
+  return onSnapshot(doc(db, 'users', userId), (doc) => {
+    const data = doc.data();
+    if (data?.subscriptionStatus) {
+      useUserStore.setState({ subscriptionStatus: data.subscriptionStatus });
+    }
+  });
+};
