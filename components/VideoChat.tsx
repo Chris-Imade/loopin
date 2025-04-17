@@ -1,27 +1,28 @@
-
-import { useEffect, useState } from 'react';
-import { useUserStore } from '../store/userStore';
-import dynamic from 'next/dynamic';
-import { Box, Button, Flex, Grid, IconButton, Text, VStack } from '@chakra-ui/react';
-import { PhoneXMarkIcon, VideoCameraIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
+import { useEffect, useState } from "react";
+import { useUserStore } from "../store/userStore";
+import dynamic from "next/dynamic";
+import { Box, Button, Flex, Text, VStack } from "@chakra-ui/react";
+import {
+  PhoneXMarkIcon,
+  VideoCameraIcon,
+  ArrowPathIcon,
+} from "@heroicons/react/24/solid";
 
 let AgoraRTC: any;
-if (typeof window !== "undefined") {
-  AgoraRTC = require('agora-rtc-sdk-ng');
-}
 
 export const VideoChat = () => {
   const [client, setClient] = useState(null);
   const [localVideoTrack, setLocalVideoTrack] = useState(null);
   const [remoteVideoTrack, setRemoteVideoTrack] = useState(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isMainViewPartner, setIsMainViewPartner] = useState(false); // Track who is in main view
   const { user } = useUserStore();
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
+    if (typeof window === "undefined") return;
+
     const initClient = async () => {
-      const agoraClient = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+      const agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
       setClient(agoraClient);
     };
 
@@ -30,7 +31,7 @@ export const VideoChat = () => {
 
   const initializeAgora = async () => {
     if (!client || !user || isConnecting) {
-      console.log('Cannot initialize:', { client, user, isConnecting });
+      console.log("Cannot initialize:", { client, user, isConnecting });
       return;
     }
     setIsConnecting(true);
@@ -38,63 +39,95 @@ export const VideoChat = () => {
     try {
       await client.join(
         process.env.NEXT_PUBLIC_AGORA_APP_ID,
-        'default-channel',
+        "default-channel",
         null,
-        user.uid
+        user.uid,
       );
 
       const tracks = await AgoraRTC.createMicrophoneAndCameraTracks();
       setLocalVideoTrack(tracks[1]);
       await client.publish(tracks);
 
-      client.on('user-published', async (remoteUser, mediaType) => {
+      client.on("user-published", async (remoteUser, mediaType) => {
         await client.subscribe(remoteUser, mediaType);
-        if (mediaType === 'video') {
+        if (mediaType === "video") {
           setRemoteVideoTrack(remoteUser.videoTrack);
         }
       });
     } catch (error) {
-      console.error('Failed to initialize video chat:', error);
+      console.error("Failed to initialize video chat:", error);
     } finally {
       setIsConnecting(false);
     }
   };
 
-  const handleDisconnect = async () => {
-    try {
-      localVideoTrack?.close();
-      await client?.leave();
-      setLocalVideoTrack(null);
-      setRemoteVideoTrack(null);
-    } catch (error) {
-      console.error('Failed to disconnect:', error);
-    }
+  const switchView = () => {
+    setIsMainViewPartner((prev) => !prev);
   };
 
-  useEffect(() => {
-    return () => {
-      handleDisconnect();
-    };
-  }, []);
-
   return (
-    <VStack spacing={6} w="full">
-      <Text fontSize="2xl" fontWeight="bold">Video Chat</Text>
-      
-      <Grid
-        templateColumns={{ base: '1fr', md: remoteVideoTrack ? 'repeat(2, 1fr)' : '1fr' }}
-        gap={4}
+    <VStack spacing={6} w="full" h="full" position="relative">
+      <Text fontSize="2xl" fontWeight="bold">
+        Video Chat
+      </Text>
+
+      <Flex
         w="full"
+        h="100%"
+        position="relative"
+        overflow="hidden"
+        onClick={switchView}
+        transition="all 0.3s ease"
       >
-        {localVideoTrack && (
+        {isMainViewPartner && remoteVideoTrack ? (
           <Box
-            position="relative"
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
             bg="gray.800"
             borderRadius="xl"
             overflow="hidden"
-            aspectRatio={16/9}
+            aspectRatio={16 / 9}
           >
-            <div ref={(el) => el && localVideoTrack.play(el)} style={{ width: '100%', height: '100%' }} />
+            <div
+              ref={(el) => el && remoteVideoTrack.play(el)}
+              style={{ width: "100%", height: "100%" }}
+            />
+            <Text
+              position="absolute"
+              bottom={2}
+              left={2}
+              bg="blackAlpha.700"
+              px={2}
+              py={1}
+              borderRadius="md"
+              fontSize="sm"
+            >
+              Partner
+            </Text>
+          </Box>
+        ) : (
+          <Box
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            bg="gray.800"
+            borderRadius="xl"
+            overflow="hidden"
+            aspectRatio={16 / 9}
+          >
+            <div
+              ref={(el) => {
+                if (el && localVideoTrack) {
+                  localVideoTrack.play(el);
+                }
+              }}
+              style={{ width: "100%", height: "100%" }}
+            />
             <Text
               position="absolute"
               bottom={2}
@@ -109,31 +142,25 @@ export const VideoChat = () => {
             </Text>
           </Box>
         )}
-        
-        {remoteVideoTrack && (
+
+        {remoteVideoTrack && !isMainViewPartner && (
           <Box
-            position="relative"
-            bg="gray.800"
+            position="absolute"
+            bottom={0}
+            right={0}
+            width="30%"
+            aspectRatio={16 / 9}
             borderRadius="xl"
             overflow="hidden"
-            aspectRatio={16/9}
+            bg="gray.600"
           >
-            <div ref={(el) => el && remoteVideoTrack.play(el)} style={{ width: '100%', height: '100%' }} />
-            <Text
-              position="absolute"
-              bottom={2}
-              left={2}
-              bg="blackAlpha.700"
-              px={2}
-              py={1}
-              borderRadius="md"
-              fontSize="sm"
-            >
-              Partner
-            </Text>
+            <div
+              ref={(el) => el && remoteVideoTrack.play(el)}
+              style={{ width: "100%", height: "100%" }}
+            />
           </Box>
         )}
-      </Grid>
+      </Flex>
 
       <Flex gap={4} justify="center" mt={4}>
         {!localVideoTrack ? (
