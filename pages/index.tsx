@@ -40,8 +40,17 @@ const Home: NextPage = () => {
           bgGradient={bgGradient}
           py={20}
           px={4}
+          position="relative"
+          overflow="hidden"
         >
-          <Container maxW="xl">
+          <Container maxW="container.xl">
+            <Flex
+              direction={{ base: 'column', lg: 'row' }}
+              align="center"
+              justify="space-between"
+              gap={8}
+            >
+              <Box flex="1" maxW={{ base: "100%", lg: "50%" }}>
             <VStack spacing={8} textAlign="center">
               <Heading
                 fontSize={{ base: "4xl", md: "5xl" }}
@@ -63,6 +72,27 @@ const Home: NextPage = () => {
                 <AuthButtons />
               </Box>
             </VStack>
+              </Box>
+              <Box 
+                display={{ base: 'none', lg: 'block' }}
+                flex="1"
+                h="600px"
+                position="relative"
+              >
+                <Box
+                  position="absolute"
+                  right="0"
+                  top="50%"
+                  transform="translateY(-50%)"
+                  w="full"
+                  h="full"
+                  bgImage="/video-chat-illustration.png"
+                  bgSize="contain"
+                  bgPosition="center"
+                  bgRepeat="no-repeat"
+                />
+              </Box>
+            </Flex>
           </Container>
         </Box>
       </Layout>
