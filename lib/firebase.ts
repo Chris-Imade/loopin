@@ -1,5 +1,5 @@
 
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
@@ -16,9 +16,9 @@ const firebaseConfig = {
 
 let app;
 try {
-  app = initializeApp(firebaseConfig);
-} catch (error) {
   app = getApp();
+} catch (error) {
+  app = initializeApp(firebaseConfig);
 }
 
 export const auth = getAuth(app);
