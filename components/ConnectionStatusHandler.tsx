@@ -8,6 +8,8 @@ import {
   AlertIcon,
   AlertTitle,
   CloseButton,
+  Code,
+  VStack,
 } from "@chakra-ui/react";
 import { useFirebaseConnection } from "../hooks/useFirebaseConnection";
 import {
@@ -23,7 +25,7 @@ interface ConnectionStatusHandlerProps {
 export const ConnectionStatusHandler: React.FC<
   ConnectionStatusHandlerProps
 > = ({ onRetryConnection }) => {
-  const { isOnline, isFirebaseConnected, forceReconnect } =
+  const { isOnline, isFirebaseConnected, connectionError, forceReconnect } =
     useFirebaseConnection();
   const toast = useToast();
   const toastIdRef = React.useRef<string | number | undefined>(undefined);
@@ -31,16 +33,26 @@ export const ConnectionStatusHandler: React.FC<
 
   // Handle connection changes
   useEffect(() => {
+    // Generate unique toast IDs based on current time
+    const offlineToastId = `connection-offline-toast-${Date.now()}`;
+    const errorToastId = `connection-error-toast-${Date.now()}`;
+
     // Close any existing toasts first to prevent duplicates
     if (toastIdRef.current) {
-      toast.close(toastIdRef.current);
+      if (toast.isActive(toastIdRef.current)) {
+        toast.close(toastIdRef.current);
+      }
       toastIdRef.current = undefined;
     }
+
+    // Clear existing alerts
+    setShowAlert(false);
 
     if (!isOnline) {
       // Device is offline
       setShowAlert(true);
       toastIdRef.current = toast({
+        id: offlineToastId,
         title: "You are offline",
         description: "Using cached data. Some features may be limited.",
         status: "warning",
@@ -56,10 +68,17 @@ export const ConnectionStatusHandler: React.FC<
     } else if (!isFirebaseConnected && isOnline) {
       // Online but Firebase disconnected
       setShowAlert(true);
+
+      // Show error details in development mode
+      const errorDescription =
+        connectionError && process.env.NODE_ENV === "development"
+          ? `Error: ${connectionError.message}`
+          : "Connected to the internet but having trouble reaching our servers.";
+
       toastIdRef.current = toast({
+        id: errorToastId,
         title: "Connection issues",
-        description:
-          "Connected to the internet but having trouble reaching our servers.",
+        description: errorDescription,
         status: "error",
         duration: null,
         isClosable: true,
@@ -70,49 +89,73 @@ export const ConnectionStatusHandler: React.FC<
           setShowAlert(false);
         },
       });
-    } else {
-      // We're fully connected, close any existing toasts
-      setShowAlert(false);
-      if (toastIdRef.current) {
-        toast.close(toastIdRef.current);
-        toastIdRef.current = undefined;
-      }
     }
 
     return () => {
       // Clean up toast on unmount
-      if (toastIdRef.current) {
+      if (toastIdRef.current && toast.isActive(toastIdRef.current)) {
         toast.close(toastIdRef.current);
         toastIdRef.current = undefined;
       }
     };
-  }, [isOnline, isFirebaseConnected, toast]);
+  }, [isOnline, isFirebaseConnected, connectionError, toast]);
 
   const handleRetryConnection = async () => {
+    // Generate unique toast ID for loading toast
+    const loadingToastId = `reconnect-loading-${Date.now()}`;
+
     if (onRetryConnection) {
       onRetryConnection();
     }
 
+    // Close existing toasts
+    if (toastIdRef.current) {
+      if (toast.isActive(toastIdRef.current)) {
+        toast.close(toastIdRef.current);
+      }
+      toastIdRef.current = undefined;
+    }
+
+    setShowAlert(false);
+
+    // Show connecting toast
+    const loadingToast = toast({
+      id: loadingToastId,
+      title: "Reconnecting...",
+      status: "loading",
+      duration: null,
+      position: "top",
+    });
+
     // Try to reconnect Firebase
     const success = await forceReconnect();
 
+    // Close loading toast
+    toast.close(loadingToast);
+
+    // Generate unique IDs for success/failure toasts
+    const resultToastId = `reconnect-result-${Date.now()}`;
+
     if (success) {
       toast({
+        id: resultToastId,
         title: "Connection restored",
         status: "success",
         duration: 3000,
         isClosable: true,
-        onCloseComplete: () => {
-          setShowAlert(false);
-        },
+        position: "top",
       });
     } else {
       toast({
+        id: resultToastId,
         title: "Connection failed",
-        description: "Please check your internet connection and try again.",
+        description: connectionError
+          ? `Error: ${connectionError.message}`
+          : "Please check your internet connection and try again.",
         status: "error",
         duration: 5000,
         isClosable: true,
+        position: "top",
       });
     }
   };
@@ -120,7 +163,9 @@ export const ConnectionStatusHandler: React.FC<
   const handleCloseAlert = () => {
     setShowAlert(false);
     if (toastIdRef.current) {
-      toast.close(toastIdRef.current);
+      if (toast.isActive(toastIdRef.current)) {
+        toast.close(toastIdRef.current);
+      }
       toastIdRef.current = undefined;
     }
   };
@@ -139,14 +184,21 @@ export const ConnectionStatusHandler: React.FC<
     >
       <AlertIcon />
       <Box flex="1">
-        <AlertTitle fontSize="sm">
-          {!isOnline ? "You are offline" : "Connection issues"}
-        </AlertTitle>
-        <Text fontSize="xs">
-          {!isOnline
-            ? "Using cached data. Some features will be limited."
-            : "Connected to internet but having trouble reaching our servers."}
-        </Text>
+        <VStack align="start" spacing={1}>
+          <AlertTitle fontSize="sm">
+            {!isOnline ? "You are offline" : "Connection issues"}
+          </AlertTitle>
+          <Text fontSize="xs">
+            {!isOnline
+              ? "Using cached data. Some features will be limited."
+              : "Connected to internet but having trouble reaching our servers."}
+          </Text>
+          {connectionError && process.env.NODE_ENV === "development" && (
+            <Code fontSize="xs" colorScheme="red" p={1}>
+              {connectionError.message}
+            </Code>
+          )}
+        </VStack>
       </Box>
       <Button
         size="sm"

@@ -3,7 +3,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
-import { getDatabase } from "firebase/database";
+import { getDatabase, connectDatabaseEmulator } from "firebase/database";
 
 console.log("[FIREBASE] Starting Firebase initialization");
 
@@ -30,7 +30,10 @@ const firebaseConfig = {
   databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
 };
 
-console.log("[FIREBASE] Config created");
+console.log("[FIREBASE] Config created:", {
+  ...firebaseConfig,
+  apiKey: firebaseConfig.apiKey ? "[HIDDEN]" : undefined,
+});
 
 // Step 3: Initialize Firebase App
 let app;
@@ -63,8 +66,40 @@ const storage = getStorage(app);
 console.log("[FIREBASE] Initializing Functions service");
 const functions = getFunctions(app);
 
-console.log("[FIREBASE] Initializing Realtime Database service");
-const rtdb = getDatabase(app);
+// Step 5: Initialize Realtime Database with error handling
+let rtdb;
+try {
+  console.log("[FIREBASE] Initializing Realtime Database service");
+  if (!firebaseConfig.databaseURL) {
+    throw new Error("Database URL is missing in configuration");
+  }
+  rtdb = getDatabase(app);
+
+  // Verify if we're in development mode to use emulator
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === "true"
+  ) {
+    connectDatabaseEmulator(rtdb, "localhost", 9000);
+    console.log("[FIREBASE] Connected to Realtime Database emulator");
+  }
+
+  console.log(
+    "[FIREBASE] Realtime Database initialized with URL:",
+    firebaseConfig.databaseURL
+  );
+} catch (error) {
+  console.error("[FIREBASE] Error initializing Realtime Database:", error);
+  // Create a mock database object to prevent app crashes
+  rtdb = {
+    ref: () => ({
+      on: () => {},
+      off: () => {},
+      once: () => Promise.resolve({ val: () => null }),
+    }),
+    app: app,
+  } as any;
+}
 
 console.log("[FIREBASE] All Firebase services initialized successfully");
 

@@ -19,6 +19,8 @@ import {
   ModalCloseButton,
   useDisclosure,
   Center,
+  Alert,
+  AlertIcon,
 } from "@chakra-ui/react";
 import {
   PhoneXMarkIcon,
@@ -31,6 +33,7 @@ import {
 import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import { useRouter } from "next/router";
 import { RandomWaitingMessage } from "./RandomWaitingMessage";
+import loadAgoraRTCModule from "../lib/agora-loader";
 
 export const VideoChat = () => {
   const [client, setClient] = useState(null);
@@ -57,6 +60,9 @@ export const VideoChat = () => {
   // Mock data for contact status
   const isPremium = user?.isPremium || false;
   const [contactAdded, setContactAdded] = useState(false);
+
+  // Add a state to track Agora loading errors
+  const [agoraLoadError, setAgoraLoadError] = useState(false);
 
   // Choose random message when searching begins
   useEffect(() => {
@@ -98,12 +104,45 @@ export const VideoChat = () => {
   useEffect(() => {
     // Import AgoraRTC only on client-side
     const loadAgora = async () => {
-      const AgoraRTCModule = await import("agora-rtc-sdk-ng");
-      setAgoraRTC(AgoraRTCModule.default);
+      try {
+        console.log("Loading Agora RTC SDK using utility...");
+
+        // Use our utility function with retry and caching
+        const agoraModule = await loadAgoraRTCModule(3, 1000);
+
+        if (agoraModule) {
+          setAgoraRTC(agoraModule);
+          setAgoraLoadError(false);
+          console.log("Agora RTC SDK loaded and set successfully");
+        } else {
+          console.error("Failed to load Agora RTC SDK after retries");
+          setAgoraLoadError(true);
+          toast({
+            id: `agora-load-failed-${Date.now()}`,
+            title: "Video chat unavailable",
+            description: "Please refresh the page or try again later.",
+            status: "error",
+            duration: 10000,
+            isClosable: true,
+          });
+        }
+      } catch (e) {
+        console.error("Fatal error loading Agora RTC SDK:", e);
+        setAgoraLoadError(true);
+        toast({
+          id: `agora-error-${Date.now()}`,
+          title: "Video chat error",
+          description:
+            "An unexpected error occurred loading video chat capabilities.",
+          status: "error",
+          duration: 10000,
+          isClosable: true,
+        });
+      }
     };
 
     loadAgora();
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     if (!AgoraRTC || typeof window === "undefined") return;
@@ -415,6 +454,43 @@ export const VideoChat = () => {
         </ModalContent>
       </Modal>
 
+      {/* Agora Load Error Modal */}
+      {agoraLoadError && (
+        <Box
+          position="absolute"
+          top="50%"
+          left="50%"
+          transform="translate(-50%, -50%)"
+          zIndex={20}
+          textAlign="center"
+          bg="rgba(0,0,0,0.8)"
+          p={6}
+          borderRadius="lg"
+          maxW="80%"
+        >
+          <Alert status="error" borderRadius="md" mb={4}>
+            <AlertIcon />
+            Failed to load video chat
+          </Alert>
+          <Text color="white" mb={4}>
+            We&apos;re having trouble loading the video chat component. This may
+            be due to network issues or an incompatible browser.
+          </Text>
+          <VStack spacing={3}>
+            <Button colorScheme="blue" onClick={() => window.location.reload()}>
+              Refresh Page
+            </Button>
+            <Button
+              variant="outline"
+              colorScheme="gray"
+              onClick={() => router.push("/")}
+            >
+              Go to Home
+            </Button>
+          </VStack>
+        </Box>
+      )}
+
       {/* Main Video Reel */}
       <motion.div
         ref={swipeRef}
@@ -568,7 +644,7 @@ export const VideoChat = () => {
                     {/* Down indicator */}
                     <Box
                       position="absolute"
-                      bottom="140px" // Above controls
+                      bottom="max(140px, env(safe-area-inset-bottom, 0px) + 140px)"
                       left="50%"
                       transform="translateX(-50%)"
                       zIndex={2}
@@ -616,7 +692,7 @@ export const VideoChat = () => {
           {remoteVideoTrack && localVideoTrack && (
             <Box
               position="absolute"
-              bottom={120} // Positioned higher to avoid overlap with controls
+              bottom="max(120px, env(safe-area-inset-bottom, 0px) + 120px)"
               right={4}
               width="30%"
               aspectRatio="16/9"
@@ -653,7 +729,7 @@ export const VideoChat = () => {
                 transition={{ duration: 0.2 } as any}
                 style={{
                   position: "absolute",
-                  bottom: "80px",
+                  bottom: "max(80px, env(safe-area-inset-bottom, 0px) + 80px)",
                   left: 0,
                   right: 0,
                   padding: "16px",

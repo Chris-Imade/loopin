@@ -7,6 +7,8 @@ import { useCoinStore } from "../store/coinStore";
 import { motion } from "framer-motion";
 import Head from "next/head";
 import ConnectionStatusHandler from "./ConnectionStatusHandler";
+import { useEffect } from "react";
+import testRealtimeDatabase from "../lib/firebase-test";
 
 interface LayoutProps {
   children: ReactNode;
@@ -22,11 +24,31 @@ export const Layout = ({ children, hideBottomNav = false }: LayoutProps) => {
   // Only show bottom nav for logged in users
   const showBottomNav = user && !hideBottomNav && !isLoading;
 
+  // Check Firebase database connection on component mount
+  useEffect(() => {
+    if (user) {
+      console.log("[LAYOUT] Testing Firebase connection...");
+      testRealtimeDatabase()
+        .then((result) => {
+          console.log("[LAYOUT] Firebase connection test result:", result);
+        })
+        .catch((error) => {
+          console.error("[LAYOUT] Firebase connection test error:", error);
+        });
+    }
+  }, [user]);
+
   // Handle retry connection for data loading
   const handleRetryConnection = () => {
-    if (user) {
-      loadUserCoins(user.uid);
-    }
+    console.log("Retrying connection from Layout...");
+    // Test the connection again after retry
+    testRealtimeDatabase()
+      .then((result) => {
+        console.log("[LAYOUT] Connection retry test result:", result);
+      })
+      .catch((error) => {
+        console.error("[LAYOUT] Connection retry test error:", error);
+      });
   };
 
   const pageVariants = {
