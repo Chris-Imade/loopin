@@ -418,7 +418,7 @@ export const VideoChat = () => {
       {/* Main Video Reel */}
       <motion.div
         ref={swipeRef}
-        animate={controls}
+        animate={controls as any}
         transition={{ type: "spring", damping: 30 }}
         style={{
           width: "100%",
@@ -442,9 +442,9 @@ export const VideoChat = () => {
           <AnimatePresence>
             {isSearching && !remoteVideoTrack && (
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                initial={{ opacity: 0 } as any}
+                animate={{ opacity: 1 } as any}
+                exit={{ opacity: 0 } as any}
                 style={{
                   position: "absolute",
                   top: 0,
@@ -641,9 +641,9 @@ export const VideoChat = () => {
           <AnimatePresence>
             {(showControls || !remoteVideoTrack) && (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 20 } as any}
+                animate={{ opacity: 1, y: 0 } as any}
+                exit={{ opacity: 0, y: 20 } as any}
                 transition={{ duration: 0.2 }}
                 style={{
                   position: "absolute",

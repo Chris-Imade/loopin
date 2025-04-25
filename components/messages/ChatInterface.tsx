@@ -751,8 +751,8 @@ export const ChatInterface = ({
             {messages.map((message, index) => (
               <motion.div
                 key={message.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 20 } as any}
+                animate={{ opacity: 1, y: 0 } as any}
                 transition={{ duration: 0.2 }}
                 style={{
                   display: "flex",
@@ -808,7 +808,7 @@ export const ChatInterface = ({
                         ) : (
                           <Box
                             as={motion.span}
-                            animate={{ opacity: [0.5, 1, 0.5] }}
+                            animate={{ opacity: [0.5, 1, 0.5] } as any}
                             transition={{ repeat: true, duration: 1.5 } as any}
                             color="white"
                             fontSize="xs"
@@ -834,7 +834,7 @@ export const ChatInterface = ({
             <HStack flex={1} spacing={4} pr={2}>
               <Box
                 as={motion.div}
-                animate={{ scale: [1, 1.2, 1] }}
+                animate={{ scale: [1, 1.2, 1] } as any}
                 transition={{ repeat: true, duration: 1.5 } as any}
               >
                 <MicrophoneIcon width={24} height={24} color="red" />

@@ -379,8 +379,8 @@ const CoinsPage = () => {
           {/* Current Balance */}
           <Box
             as={motion.div}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
+            initial={{ y: 20, opacity: 0 } as any}
+            animate={{ y: 0, opacity: 1 } as any}
             p={6}
             bg={cardBg}
             borderRadius="lg"
@@ -407,8 +407,8 @@ const CoinsPage = () => {
           {/* Daily Reward */}
           <Box
             as={motion.div}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
+            initial={{ y: 20, opacity: 0 } as any}
+            animate={{ y: 0, opacity: 1 } as any}
             transition={{ delay: 0.1 } as any}
             p={6}
             bg={
@@ -460,8 +460,8 @@ const CoinsPage = () => {
           {/* Coin Packages */}
           <Box
             as={motion.div}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
+            initial={{ y: 20, opacity: 0 } as any}
+            animate={{ y: 0, opacity: 1 } as any}
             transition={{ delay: 0.2 } as any}
             p={6}
             bg={cardBg}
@@ -544,8 +544,8 @@ const CoinsPage = () => {
           {/* Usage Information */}
           <Box
             as={motion.div}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
+            initial={{ y: 20, opacity: 0 } as any}
+            animate={{ y: 0, opacity: 1 } as any}
             transition={{ delay: 0.3 } as any}
             p={6}
             bg={cardBg}

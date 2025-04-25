@@ -45,9 +45,9 @@ export const RandomWaitingMessage = () => {
       <AnimatePresence mode="wait">
         <motion.div
           key={key}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
+          initial={{ opacity: 0, y: 10 } as any}
+          animate={{ opacity: 1, y: 0 } as any}
+          exit={{ opacity: 0, y: -10 } as any}
           transition={{ duration: 0.5 }}
         >
           <Text color="whiteAlpha.800" textAlign="center" px={4}>

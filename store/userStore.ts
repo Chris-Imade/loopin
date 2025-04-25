@@ -10,7 +10,7 @@ import {
   User,
   AuthError,
 } from "firebase/auth";
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { doc, getDoc, getFirestore } from "firebase/firestore";
 import { useToast } from "@chakra-ui/react";
 import { initializeSubscriptionListener } from "../lib/firebase";
@@ -32,12 +32,13 @@ interface UserState {
   signInWithApple: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
   clearAuthError: () => void;
   subscriptionStatus?: string;
   setSubscriptionStatus: (status: string) => void;
 }
 
-export const useUserStore = create<UserState>((set) => ({
+export const useUserStore = create<UserState>((set, get) => ({
   user: null,
   isLoading: true,
   authError: null,
@@ -238,59 +239,127 @@ export const useUserStore = create<UserState>((set) => ({
     }
   },
 
+  // Sign out
+  signOut: async () => {
+    try {
+      await auth.signOut();
+      // Auth state listener will handle updating the state
+    } catch (error) {
+      console.error("Sign out error:", error);
+      set({ authError: "Failed to sign out" });
+    }
+  },
+
   // Clear auth error
   clearAuthError: () => set({ authError: null }),
 }));
 
+// Store state updater to avoid memory leaks and stale closures
+const storeStateUpdater = {
+  setUser: (user: ExtendedUser | null) => {
+    useUserStore.setState({
+      user,
+      isLoading: false,
+      authError: null,
+    });
+  },
+  setSignedOut: () => {
+    useUserStore.setState({
+      user: null,
+      isLoading: false,
+      authError: null,
+      subscriptionStatus: undefined,
+    });
+  },
+  setSubscriptionStatus: (status: string) => {
+    useUserStore.setState({ subscriptionStatus: status });
+  },
+};
+
 // Move the auth state listener to a custom hook to avoid running it on the server
 export const useAuthStateListener = () => {
+  // Use refs to prevent useEffect dependencies from changing
+  const authUnsubscribeRef = useRef<(() => void) | null>(null);
+  const subscriptionUnsubscribeRef = useRef<(() => void) | null>(null);
+
+  // Safe version of the subscription updater that doesn't get stale
+  const handleSubscriptionUpdate = useCallback((status: string) => {
+    storeStateUpdater.setSubscriptionStatus(status);
+  }, []);
+
   useEffect(() => {
     // Only run on client-side
     if (typeof window === "undefined") return;
 
-    let subscriptionUnsubscribe: (() => void) | null = null;
+    // Unsubscribe from previous listeners to prevent duplicates
+    if (authUnsubscribeRef.current) {
+      authUnsubscribeRef.current();
+      authUnsubscribeRef.current = null;
+    }
 
-    const authUnsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        // For demo purposes, apply random premium status if not present
-        const extendedUser = user as ExtendedUser;
-        if (extendedUser.isPremium === undefined) {
-          extendedUser.isPremium = Math.random() > 0.7; // 30% chance of being premium
+    if (subscriptionUnsubscribeRef.current) {
+      subscriptionUnsubscribeRef.current();
+      subscriptionUnsubscribeRef.current = null;
+    }
+
+    // Set up auth state listener
+    authUnsubscribeRef.current = onAuthStateChanged(
+      auth,
+      (user) => {
+        if (user) {
+          // For demo purposes, apply random premium status if not present
+          const extendedUser = user as ExtendedUser;
+          if (extendedUser.isPremium === undefined) {
+            extendedUser.isPremium = Math.random() > 0.7; // 30% chance of being premium
+          }
+
+          // Update the store with the user
+          storeStateUpdater.setUser(extendedUser);
+
+          // Initialize subscription listener when user is authenticated
+          // and clean up any previous one
+          if (subscriptionUnsubscribeRef.current) {
+            subscriptionUnsubscribeRef.current();
+          }
+
+          try {
+            subscriptionUnsubscribeRef.current = initializeSubscriptionListener(
+              user.uid,
+              handleSubscriptionUpdate
+            );
+          } catch (error) {
+            console.error("Failed to initialize subscription listener:", error);
+          }
+        } else {
+          // User is signed out
+          storeStateUpdater.setSignedOut();
+
+          // Clean up subscription listener if it exists
+          if (subscriptionUnsubscribeRef.current) {
+            subscriptionUnsubscribeRef.current();
+            subscriptionUnsubscribeRef.current = null;
+          }
         }
-        useUserStore.setState({
-          user: extendedUser,
-          isLoading: false,
-          authError: null,
-        });
-
-        // Initialize subscription listener when user is authenticated
-        subscriptionUnsubscribe = initializeSubscriptionListener(
-          user.uid,
-          (status) => useUserStore.getState().setSubscriptionStatus(status)
-        );
-      } else {
-        useUserStore.setState({
-          user: null,
-          isLoading: false,
-          authError: null,
-          subscriptionStatus: undefined,
-        });
-
-        // Clean up subscription listener if it exists
-        if (subscriptionUnsubscribe) {
-          subscriptionUnsubscribe();
-          subscriptionUnsubscribe = null;
-        }
+      },
+      (error) => {
+        console.error("Auth state changed error:", error);
+        // Don't update state here to avoid triggering re-renders
       }
-    });
+    );
 
+    // Cleanup function
     return () => {
-      authUnsubscribe();
-      if (subscriptionUnsubscribe) {
-        subscriptionUnsubscribe();
+      if (authUnsubscribeRef.current) {
+        authUnsubscribeRef.current();
+        authUnsubscribeRef.current = null;
+      }
+
+      if (subscriptionUnsubscribeRef.current) {
+        subscriptionUnsubscribeRef.current();
+        subscriptionUnsubscribeRef.current = null;
       }
     };
-  }, []);
+  }, [handleSubscriptionUpdate]); // Only depend on stable callback
 };
 
 // Custom hook to handle auth errors with toast
@@ -300,15 +369,24 @@ export const useAuthErrorToast = () => {
   const clearAuthError = useUserStore((state) => state.clearAuthError);
 
   useEffect(() => {
-    if (authError) {
-      toast({
-        title: "Authentication Error",
-        description: authError,
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-      });
-      clearAuthError();
-    }
+    if (!authError) return;
+
+    const toastId = toast({
+      title: "Authentication Error",
+      description: authError,
+      status: "error",
+      duration: 5000,
+      isClosable: true,
+    });
+
+    // Clear the error once displayed
+    clearAuthError();
+
+    // Clean up toast on unmount if still visible
+    return () => {
+      if (toast.isActive(toastId)) {
+        toast.close(toastId);
+      }
+    };
   }, [authError, toast, clearAuthError]);
 };

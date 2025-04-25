@@ -63,8 +63,8 @@ const SuccessPage = () => {
         <VStack spacing={6} align="stretch">
           <Box
             as={motion.div}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
+            initial={{ y: 20, opacity: 0 } as any}
+            animate={{ y: 0, opacity: 1 } as any}
             transition={{ duration: 0.3 } as any}
             p={8}
             bg={cardBg}

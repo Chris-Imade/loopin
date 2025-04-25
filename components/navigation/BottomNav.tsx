@@ -46,7 +46,7 @@ const NavItem = ({
   };
 
   return (
-    <motion.div whileTap={{ scale: 0.9 }} style={{ width: "100%" }}>
+    <motion.div whileTap={{ scale: 0.9 } as any} style={{ width: "100%" }}>
       <Flex
         direction="column"
         align="center"
@@ -99,8 +99,8 @@ export const BottomNav = () => {
   return (
     <Box
       as={motion.div}
-      initial={{ y: 100 }}
-      animate={{ y: 0 }}
+      initial={{ y: 100 } as any}
+      animate={{ y: 0 } as any}
       transition={
         {
           type: "spring",

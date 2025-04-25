@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Layout } from "../components/Layout";
 import { useUserStore } from "../store/userStore";
 import { useCoinStore } from "../store/coinStore";
@@ -244,7 +244,7 @@ const countries = [
 ];
 
 const ProfilePage = () => {
-  const { user, isLoading } = useUserStore();
+  const { user, isLoading, signOut } = useUserStore();
   const {
     coins,
     isLoading: coinsLoading,
@@ -416,6 +416,23 @@ const ProfilePage = () => {
     router.push(`/subscription?plan=${planId}&priceId=${selectedPlan.priceId}`);
   };
 
+  // Handle sign out with proper error handling
+  const handleSignOut = useCallback(async () => {
+    try {
+      await signOut();
+      // Router will redirect in the useEffect when user becomes null
+    } catch (error) {
+      console.error("Error signing out:", error);
+      toast({
+        title: "Sign Out Error",
+        description: "Failed to sign out properly",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  }, [signOut, toast]);
+
   const bgColor = useColorModeValue("gray.50", "gray.800");
   const cardBg = useColorModeValue("white", "gray.700");
   const highlightedCardBg = useColorModeValue("blue.50", "blue.900");
@@ -508,8 +525,8 @@ const ProfilePage = () => {
           {/* Coins Summary Box */}
           <Box
             as={motion.div}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
+            initial={{ y: 20, opacity: 0 } as any}
+            animate={{ y: 0, opacity: 1 } as any}
             transition={{ delay: 0.05 } as any}
             p={6}
             bg={cardBg}
@@ -567,8 +584,8 @@ const ProfilePage = () => {
 
           <Box
             as={motion.div}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
+            initial={{ y: 20, opacity: 0 } as any}
+            animate={{ y: 0, opacity: 1 } as any}
             transition={{ delay: 0.1 } as any}
             p={6}
             bg={cardBg}
@@ -637,8 +654,8 @@ const ProfilePage = () => {
 
           <Box
             as={motion.div}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
+            initial={{ y: 20, opacity: 0 } as any}
+            animate={{ y: 0, opacity: 1 } as any}
             transition={{ delay: 0.2 } as any}
             p={6}
             bg={cardBg}
@@ -713,8 +730,8 @@ const ProfilePage = () => {
 
           <Box
             as={motion.div}
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
+            initial={{ y: 20, opacity: 0 } as any}
+            animate={{ y: 0, opacity: 1 } as any}
             transition={{ delay: 0.3 } as any}
             p={6}
             bg={cardBg}
@@ -724,7 +741,12 @@ const ProfilePage = () => {
             <Heading size="md" mb={4}>
               Account
             </Heading>
-            <Button colorScheme="red" variant="outline" w="full">
+            <Button
+              colorScheme="red"
+              variant="outline"
+              w="full"
+              onClick={handleSignOut}
+            >
               Sign Out
             </Button>
           </Box>
