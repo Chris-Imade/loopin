@@ -3,8 +3,10 @@ import { Box, Container, useColorModeValue } from "@chakra-ui/react";
 import { BottomNav } from "./navigation/BottomNav";
 import { useRouter } from "next/router";
 import { useUserStore } from "../store/userStore";
+import { useCoinStore } from "../store/coinStore";
 import { motion } from "framer-motion";
 import Head from "next/head";
+import ConnectionStatusHandler from "./ConnectionStatusHandler";
 
 interface LayoutProps {
   children: ReactNode;
@@ -14,10 +16,18 @@ interface LayoutProps {
 export const Layout = ({ children, hideBottomNav = false }: LayoutProps) => {
   const router = useRouter();
   const { user, isLoading } = useUserStore();
+  const { loadUserCoins } = useCoinStore();
   const bgColor = useColorModeValue("gray.50", "gray.900"); // Allow light mode
 
   // Only show bottom nav for logged in users
   const showBottomNav = user && !hideBottomNav && !isLoading;
+
+  // Handle retry connection for data loading
+  const handleRetryConnection = () => {
+    if (user) {
+      loadUserCoins(user.uid);
+    }
+  };
 
   const pageVariants = {
     initial: {
@@ -78,6 +88,11 @@ export const Layout = ({ children, hideBottomNav = false }: LayoutProps) => {
             },
           }}
         >
+          {user && (
+            <ConnectionStatusHandler
+              onRetryConnection={handleRetryConnection}
+            />
+          )}
           {children}
         </Container>
         {showBottomNav && <BottomNav />}

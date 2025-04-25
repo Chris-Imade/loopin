@@ -61,13 +61,27 @@ const DAILY_REWARD_AMOUNT = 10;
 const isOfflineError = (error: any): boolean => {
   if (!error) return false;
 
+  // First check if browser is offline
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    return true;
+  }
+
+  // Check for common Firebase offline error codes and messages
   return (
-    !navigator.onLine ||
     error.code === "failed-precondition" ||
     error.code === "unavailable" ||
+    error.code === "unimplemented" ||
     error.code?.includes("offline") ||
     error.message?.includes("offline") ||
-    (error.name === "FirebaseError" && error.code === "unavailable")
+    error.message?.includes("network") ||
+    error.message?.includes("unavailable") ||
+    error.message?.includes("failed to get") ||
+    error.message?.includes("transaction failed") ||
+    error.name === "FirebaseError" ||
+    // Check for GRPC status codes used by Firebase
+    error.code === "resource-exhausted" ||
+    error.code === "internal" ||
+    error.code === "deadline-exceeded"
   );
 };
 

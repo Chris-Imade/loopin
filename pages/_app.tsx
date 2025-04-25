@@ -7,6 +7,9 @@ import { useRouter } from "next/router";
 import { extendTheme } from "@chakra-ui/react";
 import { useAuthStateListener, useAuthErrorToast } from "../store/userStore";
 import ErrorBoundary from "../components/ErrorBoundary";
+import { useEffect } from "react";
+import { db } from "../firebase/config";
+import { handleNetworkStatus } from "../lib/firebase";
 
 // Define the theme
 const theme = extendTheme({
@@ -33,6 +36,12 @@ function MyApp({ Component, pageProps }: AppProps) {
 
   // Initialize auth error toast handling
   useAuthErrorToast();
+
+  // Set up network status monitoring for Firebase
+  useEffect(() => {
+    // Use the centralized network status handler from firebase.ts
+    handleNetworkStatus();
+  }, []);
 
   // Allow pages to opt out of using the Layout
   const getLayout =

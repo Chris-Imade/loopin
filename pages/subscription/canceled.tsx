@@ -12,10 +12,19 @@ import {
 } from "@chakra-ui/react";
 import { motion } from "framer-motion";
 import { XCircleIcon, ArrowLeftIcon } from "@heroicons/react/24/solid";
+import { useEffect } from "react";
+
+// Mark this page as client-side only
+export const dynamic = "force-dynamic";
 
 const CanceledPage = () => {
   const router = useRouter();
   const cardBg = useColorModeValue("white", "gray.700");
+
+  // Handle navigation only on client-side
+  const handleReturnToProfile = () => {
+    router.push("/profile");
+  };
 
   return (
     <Layout>
@@ -44,7 +53,7 @@ const CanceledPage = () => {
                 colorScheme="blue"
                 size="lg"
                 width="full"
-                onClick={() => router.push("/profile")}
+                onClick={handleReturnToProfile}
                 mt={4}
               >
                 Return to Profile

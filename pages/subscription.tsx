@@ -15,24 +15,40 @@ import {
   useColorModeValue,
 } from "@chakra-ui/react";
 
-// Initialize Stripe
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
-);
+// Mark this page as client-side only to prevent router-related errors during build
+export const dynamic = "force-dynamic";
+
+// Initialize Stripe only on the client side
+const getStripePromise = () => {
+  return loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
+};
 
 const SubscriptionPage = () => {
   const router = useRouter();
   const { user } = useUserStore();
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const { plan, priceId } = router.query;
+  const [planInfo, setPlanInfo] = useState<{ plan?: string; priceId?: string }>(
+    {}
+  );
 
   const cardBg = useColorModeValue("white", "gray.700");
 
+  // First useEffect to safely get query params after hydration
   useEffect(() => {
-    // Redirect to checkout as soon as the component loads
+    if (router.isReady && router.query) {
+      const { plan, priceId } = router.query;
+      setPlanInfo({
+        plan: typeof plan === "string" ? plan : undefined,
+        priceId: typeof priceId === "string" ? priceId : undefined,
+      });
+    }
+  }, [router.isReady, router.query]);
+
+  // Second useEffect to handle checkout after we have the query params
+  useEffect(() => {
     const handleCheckout = async () => {
-      if (!user || !plan || !priceId) return;
+      if (!user || !planInfo.plan || !planInfo.priceId) return;
 
       setIsLoading(true);
       try {
@@ -42,14 +58,14 @@ const SubscriptionPage = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            priceId,
+            priceId: planInfo.priceId,
             userId: user.uid,
-            planId: plan,
+            planId: planInfo.plan,
           }),
         });
 
         const { sessionId } = await response.json();
-        const stripe = await stripePromise;
+        const stripe = await getStripePromise();
 
         if (stripe) {
           const { error } = await stripe.redirectToCheckout({
@@ -81,14 +97,37 @@ const SubscriptionPage = () => {
       }
     };
 
-    if (user && plan && priceId) {
+    if (user && planInfo.plan && planInfo.priceId) {
       handleCheckout();
     }
-  }, [user, plan, priceId, toast]);
+  }, [user, planInfo, toast]);
+
+  // Client-side only redirect
+  useEffect(() => {
+    if (!user && typeof window !== "undefined") {
+      router.push("/");
+    }
+  }, [user, router]);
 
   if (!user) {
-    router.push("/");
-    return null;
+    return (
+      <Layout>
+        <Container maxW="md" py={8}>
+          <Box
+            p={8}
+            bg={cardBg}
+            borderRadius="lg"
+            boxShadow="md"
+            textAlign="center"
+          >
+            <VStack spacing={6}>
+              <Heading size="lg">Loading...</Heading>
+              <Spinner size="xl" color="blue.500" thickness="4px" />
+            </VStack>
+          </Box>
+        </Container>
+      </Layout>
+    );
   }
 
   return (

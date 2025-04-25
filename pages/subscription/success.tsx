@@ -23,17 +23,29 @@ import {
   SparklesIcon,
 } from "@heroicons/react/24/solid";
 
+// Mark this page as client-side only
+export const dynamic = "force-dynamic";
+
 const SuccessPage = () => {
   const router = useRouter();
   const { user } = useUserStore();
   const { coins } = useCoinStore();
   const [isProcessing, setIsProcessing] = useState(true);
-  const { session_id } = router.query;
+  const [sessionId, setSessionId] = useState("");
   const [planName, setPlanName] = useState("");
+
+  // Get query params safely only on client-side
+  useEffect(() => {
+    if (router.isReady && router.query.session_id) {
+      setSessionId(router.query.session_id as string);
+    }
+  }, [router.isReady, router.query]);
 
   useEffect(() => {
     // In a real implementation, you would verify the session with Stripe here
     // For demo purposes, we'll just simulate a processing delay
+    if (!sessionId) return;
+
     const timer = setTimeout(() => {
       setIsProcessing(false);
 
@@ -48,13 +60,27 @@ const SuccessPage = () => {
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [session_id, user?.subscriptionType]);
+  }, [sessionId, user?.subscriptionType]);
+
+  // Client-side only redirect
+  useEffect(() => {
+    if (!user && typeof window !== 'undefined') {
+      router.push("/");
+    }
+  }, [user, router]);
 
   const cardBg = useColorModeValue("white", "gray.700");
 
   if (!user) {
-    router.push("/");
-    return null;
+    return (
+      <Layout>
+        <Container maxW="md" py={8}>
+          <VStack spacing={6}>
+            <Spinner size="xl" color="blue.500" thickness="4px" />
+          </VStack>
+        </Container>
+      </Layout>
+    );
   }
 
   return (
