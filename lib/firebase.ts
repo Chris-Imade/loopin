@@ -3,7 +3,6 @@ import { getAuth } from "firebase/auth";
 import { getFirestore, doc, onSnapshot } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
-import { useUserStore } from "../store/userStore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -26,12 +25,15 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const functions = getFunctions(app);
 
-// Initialize subscription listener
-export const initializeSubscriptionListener = (userId: string) => {
-  return onSnapshot(doc(db, "users", userId), (doc) => {
-    const data = doc.data();
+// Initialize subscription listener that accepts a callback to update state
+export const initializeSubscriptionListener = (
+  userId: string,
+  onSubscriptionUpdate: (status: string) => void
+) => {
+  return onSnapshot(doc(db, "users", userId), (docSnapshot) => {
+    const data = docSnapshot.data();
     if (data?.subscriptionStatus) {
-      useUserStore.setState({ subscriptionStatus: data.subscriptionStatus });
+      onSubscriptionUpdate(data.subscriptionStatus);
     }
   });
 };
