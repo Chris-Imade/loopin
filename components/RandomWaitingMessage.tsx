@@ -48,7 +48,7 @@ export const RandomWaitingMessage = () => {
           initial={{ opacity: 0, y: 10 } as any}
           animate={{ opacity: 1, y: 0 } as any}
           exit={{ opacity: 0, y: -10 } as any}
-          transition={{ duration: 0.5 }}
+          transition={{ duration: 0.5 } as any}
         >
           <Text color="whiteAlpha.800" textAlign="center" px={4}>
             {message}

@@ -753,7 +753,7 @@ export const ChatInterface = ({
                 key={message.id}
                 initial={{ opacity: 0, y: 20 } as any}
                 animate={{ opacity: 1, y: 0 } as any}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: 0.2 } as any}
                 style={{
                   display: "flex",
                   justifyContent:

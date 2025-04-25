@@ -346,7 +346,7 @@ export const VideoChat = () => {
       await controls.start({
         y: diff > 0 ? "-100vh" : "100vh",
         opacity: 0,
-        transition: { duration: 0.3 },
+        transition: { duration: 0.3 } as any,
       });
 
       await handleDisconnect();
@@ -367,7 +367,7 @@ export const VideoChat = () => {
           type: "spring",
           stiffness: 300,
           damping: 30,
-        },
+        } as any,
       });
     }
 
@@ -419,7 +419,7 @@ export const VideoChat = () => {
       <motion.div
         ref={swipeRef}
         animate={controls as any}
-        transition={{ type: "spring", damping: 30 }}
+        transition={{ type: "spring", damping: 30 } as any}
         style={{
           width: "100%",
           height: "100%",
@@ -461,10 +461,12 @@ export const VideoChat = () => {
               >
                 <Box
                   as={motion.div}
-                  animate={{
-                    scale: [1, 1.1, 1],
-                    opacity: [0.7, 1, 0.7],
-                  }}
+                  animate={
+                    {
+                      scale: [1, 1.1, 1],
+                      opacity: [0.7, 1, 0.7],
+                    } as any
+                  }
                   transition={
                     {
                       repeat: Infinity,
@@ -537,9 +539,11 @@ export const VideoChat = () => {
                     >
                       <Box
                         as={motion.div}
-                        animate={{
-                          y: [-5, -15, -5],
-                        }}
+                        animate={
+                          {
+                            y: [-5, -15, -5],
+                          } as any
+                        }
                         transition={
                           {
                             repeat: Infinity,
@@ -573,9 +577,11 @@ export const VideoChat = () => {
                     >
                       <Box
                         as={motion.div}
-                        animate={{
-                          y: [5, 15, 5],
-                        }}
+                        animate={
+                          {
+                            y: [5, 15, 5],
+                          } as any
+                        }
                         transition={
                           {
                             repeat: Infinity,
@@ -644,7 +650,7 @@ export const VideoChat = () => {
                 initial={{ opacity: 0, y: 20 } as any}
                 animate={{ opacity: 1, y: 0 } as any}
                 exit={{ opacity: 0, y: 20 } as any}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: 0.2 } as any}
                 style={{
                   position: "absolute",
                   bottom: "80px",
