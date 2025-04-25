@@ -24,6 +24,10 @@ import {
   CircularProgress,
   CircularProgressLabel,
   IconButton,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
 } from "@chakra-ui/react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -32,30 +36,50 @@ import {
   GiftIcon,
   ShoppingCartIcon,
   ArrowLeftIcon,
+  WifiIcon,
+  ExclamationCircleIcon,
 } from "@heroicons/react/24/solid";
 import { useRouter } from "next/router";
 import { useAuth } from "../hooks/useAuth";
 import { motion } from "framer-motion";
 
-// Initialize Stripe
-const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
-);
+// Initialize Stripe with error handling
+let stripePromise: Promise<any> | null = null;
+const getStripe = () => {
+  if (!stripePromise) {
+    // Only initialize when needed
+    const key = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+    if (!key) {
+      console.error("Stripe publishable key is missing");
+      return Promise.reject(new Error("Stripe configuration is missing"));
+    }
+    stripePromise = loadStripe(key).catch((error) => {
+      console.error("Failed to load Stripe:", error);
+      return null;
+    });
+  }
+  return stripePromise;
+};
 
 const CoinsPage = () => {
   const { user, isLoading: authLoading } = useAuth();
   const {
     coins,
     isLoading: coinsLoading,
+    isOffline,
+    errorMessage,
     loadUserCoins,
     packages,
     dailyRewardClaimed,
     dailyRewardLastClaimed,
     claimDailyReward,
     resetDailyReward,
+    clearError,
+    setOfflineStatus,
   } = useCoinStore();
   const [purchaseLoading, setPurchaseLoading] = useState<string | null>(null);
   const [rewardLoading, setRewardLoading] = useState(false);
+  const [stripeError, setStripeError] = useState<string | null>(null);
   const router = useRouter();
   const toast = useToast();
 
@@ -66,6 +90,35 @@ const CoinsPage = () => {
       resetDailyReward();
     }
   }, [user, loadUserCoins, resetDailyReward]);
+
+  // Watch for online/offline status changes
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log("App is online");
+      setOfflineStatus(false);
+      if (user) {
+        loadUserCoins(user.uid);
+      }
+    };
+
+    const handleOffline = () => {
+      console.log("App is offline");
+      setOfflineStatus(true);
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    // Check initial status
+    if (!navigator.onLine) {
+      handleOffline();
+    }
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [user, loadUserCoins, setOfflineStatus]);
 
   const handlePurchaseCoins = async (packageId: string) => {
     if (!user) {
@@ -78,9 +131,43 @@ const CoinsPage = () => {
       return;
     }
 
+    // Check if offline
+    if (isOffline) {
+      toast({
+        title: "You're offline",
+        description: "Please connect to the internet to purchase coins",
+        status: "warning",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
     setPurchaseLoading(packageId);
+    setStripeError(null);
 
     try {
+      const stripe = await getStripe().catch((err) => {
+        setStripeError(
+          "Failed to initialize payment system. Please try again later."
+        );
+        console.error("Stripe initialization error:", err);
+        return null;
+      });
+
+      if (!stripe) {
+        setPurchaseLoading(null);
+        toast({
+          title: "Payment System Unavailable",
+          description:
+            "The payment system is currently unavailable. Please try again later.",
+          status: "error",
+          duration: 5000,
+          isClosable: true,
+        });
+        return;
+      }
+
       const response = await fetch("/api/purchase-coins", {
         method: "POST",
         headers: {
@@ -93,27 +180,27 @@ const CoinsPage = () => {
       });
 
       const { sessionId } = await response.json();
-      const stripe = await stripePromise;
 
-      if (stripe) {
-        const { error } = await stripe.redirectToCheckout({
-          sessionId,
+      const { error } = await stripe.redirectToCheckout({
+        sessionId,
+      });
+
+      if (error) {
+        setStripeError(error.message || "Payment error occurred");
+        toast({
+          title: "Payment Error",
+          description: error.message,
+          status: "error",
+          duration: 5000,
+          isClosable: true,
         });
-
-        if (error) {
-          toast({
-            title: "Payment Error",
-            description: error.message,
-            status: "error",
-            duration: 5000,
-            isClosable: true,
-          });
-        }
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Purchase error:", error);
+      setStripeError(error?.message || "Failed to process payment");
       toast({
         title: "Error",
-        description: "Failed to initiate purchase",
+        description: "Failed to initiate purchase. Please try again later.",
         status: "error",
         duration: 3000,
         isClosable: true,
@@ -125,6 +212,19 @@ const CoinsPage = () => {
 
   const handleClaimDailyReward = async () => {
     if (!user) return;
+
+    // Check if offline
+    if (isOffline) {
+      toast({
+        title: "You're offline",
+        description:
+          "Please connect to the internet to claim your daily reward",
+        status: "warning",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
 
     setRewardLoading(true);
     try {
@@ -160,6 +260,19 @@ const CoinsPage = () => {
     }
   };
 
+  const handleRetryConnection = () => {
+    if (user) {
+      loadUserCoins(user.uid);
+      toast({
+        title: "Retrying connection",
+        description: "Attempting to refresh coin data",
+        status: "info",
+        duration: 2000,
+        isClosable: true,
+      });
+    }
+  };
+
   const today = new Date().toISOString().split("T")[0];
   const canClaimDailyReward = dailyRewardLastClaimed !== today;
 
@@ -167,6 +280,7 @@ const CoinsPage = () => {
   const cardBg = useColorModeValue("white", "gray.700");
   const highlightBg = useColorModeValue("yellow.50", "yellow.900");
   const borderColor = useColorModeValue("gray.200", "gray.600");
+  const offlineBg = useColorModeValue("orange.50", "orange.900");
 
   if (authLoading) {
     return (
@@ -189,7 +303,14 @@ const CoinsPage = () => {
     <Layout>
       <Container maxW="md" py={4}>
         <Flex justifyContent="space-between" alignItems="center" mb={4}>
-          <Heading size="lg">Loopin Coins</Heading>
+          <Heading size="lg">
+            Loopin Coins
+            {isOffline && (
+              <Badge ml={2} colorScheme="orange" variant="solid">
+                Offline
+              </Badge>
+            )}
+          </Heading>
           <IconButton
             aria-label="Back to profile"
             icon={<ArrowLeftIcon width={16} height={16} />}
@@ -197,6 +318,62 @@ const CoinsPage = () => {
             onClick={() => router.push("/profile")}
           />
         </Flex>
+
+        {isOffline && (
+          <Alert status="warning" mb={4} borderRadius="md">
+            <AlertIcon />
+            <Box>
+              <AlertTitle>You&apos;re offline</AlertTitle>
+              <AlertDescription>
+                Using cached coin data. Some features are limited.
+              </AlertDescription>
+            </Box>
+            <Button
+              size="sm"
+              leftIcon={<WifiIcon width={14} height={14} />}
+              ml="auto"
+              onClick={handleRetryConnection}
+            >
+              Retry
+            </Button>
+          </Alert>
+        )}
+
+        {stripeError && (
+          <Alert status="error" mb={4} borderRadius="md">
+            <AlertIcon />
+            <Box>
+              <AlertTitle>Payment System Error</AlertTitle>
+              <AlertDescription>{stripeError}</AlertDescription>
+            </Box>
+            <Button
+              size="sm"
+              leftIcon={<ExclamationCircleIcon width={14} height={14} />}
+              ml="auto"
+              onClick={() => setStripeError(null)}
+            >
+              Dismiss
+            </Button>
+          </Alert>
+        )}
+
+        {errorMessage && !isOffline && (
+          <Alert status="error" mb={4} borderRadius="md">
+            <AlertIcon />
+            <Box>
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{errorMessage}</AlertDescription>
+            </Box>
+            <Button
+              size="sm"
+              leftIcon={<ExclamationCircleIcon width={14} height={14} />}
+              ml="auto"
+              onClick={clearError}
+            >
+              Dismiss
+            </Button>
+          </Alert>
+        )}
 
         <VStack spacing={6} align="stretch">
           {/* Current Balance */}
@@ -219,7 +396,11 @@ const CoinsPage = () => {
                   `${coins} 🪙`
                 )}
               </StatNumber>
-              <StatHelpText>Buy coins or earn daily rewards</StatHelpText>
+              <StatHelpText>
+                {isOffline
+                  ? "Cached data - connect to update"
+                  : "Buy coins or earn daily rewards"}
+              </StatHelpText>
             </Stat>
           </Box>
 
@@ -230,11 +411,20 @@ const CoinsPage = () => {
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.1 } as any}
             p={6}
-            bg={canClaimDailyReward ? highlightBg : cardBg}
+            bg={
+              isOffline ? offlineBg : canClaimDailyReward ? highlightBg : cardBg
+            }
             borderRadius="lg"
             boxShadow="md"
             borderWidth="1px"
-            borderColor={canClaimDailyReward ? "yellow.300" : borderColor}
+            borderColor={
+              isOffline
+                ? "orange.300"
+                : canClaimDailyReward
+                ? "yellow.300"
+                : borderColor
+            }
+            opacity={isOffline ? 0.7 : 1}
           >
             <VStack spacing={3}>
               <Flex align="center">
@@ -243,14 +433,26 @@ const CoinsPage = () => {
               </Flex>
               <Text>Claim 10 free Loopin Coins every day!</Text>
               <Button
-                colorScheme="yellow"
-                leftIcon={<GiftIcon width={20} height={20} />}
+                colorScheme={isOffline ? "orange" : "yellow"}
+                leftIcon={
+                  isOffline ? (
+                    <WifiIcon width={20} height={20} />
+                  ) : (
+                    <GiftIcon width={20} height={20} />
+                  )
+                }
                 isLoading={rewardLoading}
-                isDisabled={!canClaimDailyReward}
-                onClick={handleClaimDailyReward}
+                isDisabled={isOffline || !canClaimDailyReward}
+                onClick={
+                  isOffline ? handleRetryConnection : handleClaimDailyReward
+                }
                 width="full"
               >
-                {canClaimDailyReward ? "Claim Now" : "Already Claimed Today"}
+                {isOffline
+                  ? "Connect to Claim"
+                  : canClaimDailyReward
+                  ? "Claim Now"
+                  : "Already Claimed Today"}
               </Button>
             </VStack>
           </Box>
@@ -265,9 +467,20 @@ const CoinsPage = () => {
             bg={cardBg}
             borderRadius="lg"
             boxShadow="md"
+            opacity={isOffline ? 0.7 : 1}
           >
             <Heading size="md" mb={4}>
               Buy Coins
+              {isOffline && (
+                <Text
+                  fontSize="sm"
+                  color="orange.500"
+                  fontWeight="normal"
+                  mt={1}
+                >
+                  Online connection required for purchases
+                </Text>
+              )}
             </Heading>
 
             <VStack spacing={4} align="stretch">
@@ -306,12 +519,22 @@ const CoinsPage = () => {
                   </VStack>
                   <Button
                     mt={{ base: 3, sm: 0 }}
-                    colorScheme="blue"
-                    leftIcon={<ShoppingCartIcon width={18} height={18} />}
+                    colorScheme={isOffline ? "gray" : "blue"}
+                    leftIcon={
+                      isOffline ? (
+                        <WifiIcon width={18} height={18} />
+                      ) : (
+                        <ShoppingCartIcon width={18} height={18} />
+                      )
+                    }
                     isLoading={purchaseLoading === pkg.id}
-                    onClick={() => handlePurchaseCoins(pkg.id)}
+                    onClick={
+                      isOffline
+                        ? handleRetryConnection
+                        : () => handlePurchaseCoins(pkg.id)
+                    }
                   >
-                    Buy Now
+                    {isOffline ? "Offline" : "Buy Now"}
                   </Button>
                 </Flex>
               ))}

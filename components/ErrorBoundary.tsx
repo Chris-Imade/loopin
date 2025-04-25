@@ -7,7 +7,7 @@ import {
   VStack,
   Container,
   Icon,
-  useColorMode,
+  useColorModeValue,
 } from "@chakra-ui/react";
 import { ExclamationIcon } from "@heroicons/react/solid";
 
@@ -20,6 +20,77 @@ interface ErrorBoundaryState {
 interface ErrorBoundaryProps {
   children: React.ReactNode;
 }
+
+// Function to wrap the ErrorBoundary with color mode values
+const ErrorFallback = ({
+  error,
+  resetErrorBoundary,
+}: {
+  error: Error | null;
+  resetErrorBoundary: () => void;
+}) => {
+  const bgColor = useColorModeValue("white", "gray.800");
+  const isAuthError =
+    error &&
+    typeof (error as any)?.code === "string" &&
+    (error as any).code.startsWith("auth/");
+
+  const getErrorMessage = (): string => {
+    if (!error) return "An unknown error occurred";
+
+    // Handle Firebase auth errors
+    if (isAuthError) {
+      const errorCode = (error as any).code;
+      switch (errorCode) {
+        case "auth/user-cancelled":
+          return "You cancelled the sign-in process. Please try again when you're ready.";
+        case "auth/unauthorized-domain":
+          return "This domain isn't authorized for authentication. Please contact support.";
+        case "auth/popup-closed-by-user":
+          return "The sign-in popup was closed before completing authentication.";
+        case "auth/popup-blocked":
+          return "The sign-in popup was blocked by your browser. Please allow popups for this site.";
+        case "auth/network-request-failed":
+          return "A network error occurred. Please check your internet connection and try again.";
+        default:
+          return `Authentication error: ${errorCode}`;
+      }
+    }
+
+    return error.message || "Something went wrong with the application";
+  };
+
+  return (
+    <Container maxW="lg" py={10}>
+      <Box p={8} bg={bgColor} boxShadow="lg" rounded="md" textAlign="center">
+        <VStack spacing={6}>
+          <Icon
+            as={ExclamationIcon}
+            w={16}
+            h={16}
+            color={isAuthError ? "yellow.500" : "red.500"}
+          />
+          <Heading size="lg">
+            {isAuthError ? "Authentication Error" : "Something went wrong"}
+          </Heading>
+          <Text fontSize="md">{getErrorMessage()}</Text>
+          <Button
+            colorScheme="blue"
+            onClick={() => {
+              resetErrorBoundary();
+              window.location.href = "/";
+            }}
+          >
+            Go to Home Page
+          </Button>
+          <Button variant="ghost" onClick={resetErrorBoundary}>
+            Try Again
+          </Button>
+        </VStack>
+      </Box>
+    </Container>
+  );
+};
 
 class ErrorBoundary extends React.Component<
   ErrorBoundaryProps,
@@ -50,93 +121,21 @@ class ErrorBoundary extends React.Component<
     console.error("Application error:", error, errorInfo);
   }
 
-  isAuthError(): boolean {
-    const errorCode = (this.state.error as any)?.code;
-    return typeof errorCode === "string" && errorCode.startsWith("auth/");
-  }
-
-  getErrorMessage(): string {
-    if (!this.state.error) return "An unknown error occurred";
-
-    // Handle Firebase auth errors
-    if (this.isAuthError()) {
-      const errorCode = (this.state.error as any).code;
-      switch (errorCode) {
-        case "auth/user-cancelled":
-          return "You cancelled the sign-in process. Please try again when you're ready.";
-        case "auth/unauthorized-domain":
-          return "This domain isn't authorized for authentication. Please contact support.";
-        case "auth/popup-closed-by-user":
-          return "The sign-in popup was closed before completing authentication.";
-        case "auth/popup-blocked":
-          return "The sign-in popup was blocked by your browser. Please allow popups for this site.";
-        case "auth/network-request-failed":
-          return "A network error occurred. Please check your internet connection and try again.";
-        default:
-          return `Authentication error: ${errorCode}`;
-      }
-    }
-
-    return (
-      this.state.error.message || "Something went wrong with the application"
-    );
-  }
+  resetErrorBoundary = () => {
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null,
+    });
+  };
 
   render() {
-    // Replace the hook with a static value matching the dark theme
-    const bgColor = "gray.800"; // Default dark mode background
-
     if (this.state.hasError) {
       return (
-        <Container maxW="lg" py={10}>
-          <Box
-            p={8}
-            bg={bgColor}
-            boxShadow="lg"
-            rounded="md"
-            textAlign="center"
-          >
-            <VStack spacing={6}>
-              <Icon
-                as={ExclamationIcon}
-                w={16}
-                h={16}
-                color={this.isAuthError() ? "yellow.500" : "red.500"}
-              />
-              <Heading size="lg">
-                {this.isAuthError()
-                  ? "Authentication Error"
-                  : "Something went wrong"}
-              </Heading>
-              <Text fontSize="md">{this.getErrorMessage()}</Text>
-              <Button
-                colorScheme="blue"
-                onClick={() => {
-                  this.setState({
-                    hasError: false,
-                    error: null,
-                    errorInfo: null,
-                  });
-                  window.location.href = "/";
-                }}
-              >
-                Go to Home Page
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  this.setState({
-                    hasError: false,
-                    error: null,
-                    errorInfo: null,
-                  });
-                }}
-              >
-                Try Again
-              </Button>
-            </VStack>
-          </Box>
-        </Container>
+        <ErrorFallback
+          error={this.state.error}
+          resetErrorBoundary={this.resetErrorBoundary}
+        />
       );
     }
 

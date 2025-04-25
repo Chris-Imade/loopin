@@ -141,7 +141,7 @@ const MessagesPage = () => {
 
       setMessages(mockMessages);
     }
-  }, [activeContact, authUser?.uid]);
+  }, [activeContact, authUser?.uid, contacts]);
 
   useEffect(() => {
     // Scroll to bottom when messages change

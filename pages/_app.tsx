@@ -11,16 +11,17 @@ import ErrorBoundary from "../components/ErrorBoundary";
 // Define the theme
 const theme = extendTheme({
   styles: {
-    global: {
+    global: (props: any) => ({
       "html, body": {
-        backgroundColor: "gray.900",
-        color: "white",
+        backgroundColor: props.colorMode === "dark" ? "gray.900" : "white",
+        color: props.colorMode === "dark" ? "white" : "gray.800",
       },
-    },
+    }),
   },
   config: {
     initialColorMode: "dark",
-    useSystemColorMode: false,
+    useSystemColorMode: true,
+    cssVarPrefix: "loopin",
   },
 });
 

@@ -41,6 +41,7 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
 
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.700");
+  const badgeBorderColor = useColorModeValue("white", "gray.800");
 
   return (
     <Box
@@ -66,7 +67,7 @@ export const ConversationHeader: React.FC<ConversationHeaderProps> = ({
                 bg="green.400"
                 boxSize="12px"
                 border="2px solid"
-                borderColor={useColorModeValue("white", "gray.800")}
+                borderColor={badgeBorderColor}
               />
             )}
           </Box>

@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo, useCallback } from "react";
 import {
   Box,
   Flex,
@@ -222,9 +222,7 @@ export const ChatInterface = ({
   const [emojiCategoryTab, setEmojiCategoryTab] = useState("smileys");
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  const [inputElement, setInputElement] = useState<HTMLInputElement | null>(
-    null
-  );
+  const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const toast = useToast();
   const router = useRouter();
@@ -546,25 +544,28 @@ export const ChatInterface = ({
     }
   };
 
-  const handleInsertEmoji = (emoji: string) => {
-    if (!inputElement) return;
+  const handleInsertEmoji = useCallback(
+    (emoji: string) => {
+      if (!inputRef.current) return;
 
-    const start = inputElement.selectionStart || 0;
-    const end = inputElement.selectionEnd || 0;
-    const text = messageText;
+      const start = inputRef.current.selectionStart || 0;
+      const end = inputRef.current.selectionEnd || 0;
+      const text = messageText;
 
-    const newText = text.substring(0, start) + emoji + text.substring(end);
-    setMessageText(newText);
+      const newText = text.substring(0, start) + emoji + text.substring(end);
+      setMessageText(newText);
 
-    // After state update, need to focus back on input and set cursor position
-    setTimeout(() => {
-      if (inputElement) {
-        inputElement.focus();
-        const newCursorPos = start + emoji.length;
-        inputElement.setSelectionRange(newCursorPos, newCursorPos);
-      }
-    }, 0);
-  };
+      // After state update, need to focus back on input and set cursor position
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          const newCursorPos = start + emoji.length;
+          inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
+        }
+      }, 0);
+    },
+    [messageText]
+  );
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -602,6 +603,56 @@ export const ChatInterface = ({
     setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
     await sendMessage(message.text, message.isEmoji);
   };
+
+  // Memoize emoji panels to prevent unnecessary re-renders
+  const memoizedEmojiPanels = useMemo(() => {
+    return emojiCategories.map((category) => (
+      <TabPanel key={category} p={1}>
+        <Flex
+          flexWrap="wrap"
+          justifyContent="flex-start"
+          maxH="200px"
+          overflowY="auto"
+          css={{
+            "&::-webkit-scrollbar": {
+              width: "4px",
+            },
+            "&::-webkit-scrollbar-track": {
+              width: "6px",
+            },
+            "&::-webkit-scrollbar-thumb": {
+              background: "rgba(0,0,0,0.1)",
+              borderRadius: "24px",
+            },
+          }}
+        >
+          {agoraRTMService
+            .getEmojisByCategory(
+              category as keyof typeof agoraRTMService.emojis
+            )
+            .map((emoji) => (
+              <Box
+                key={emoji}
+                as="button"
+                p={2}
+                fontSize="xl"
+                onClick={() => handleInsertEmoji(emoji)}
+                _hover={{ bg: "gray.100" }}
+                borderRadius="md"
+                width="40px"
+                height="40px"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                m={0.5}
+              >
+                {emoji}
+              </Box>
+            ))}
+        </Flex>
+      </TabPanel>
+    ));
+  }, [emojiCategories, handleInsertEmoji]);
 
   return (
     <Flex direction="column" h="100%" bg={bgColor} position="relative">
@@ -844,13 +895,13 @@ export const ChatInterface = ({
                 onChange={(e) => setMessageText(e.target.value)}
                 onKeyPress={handleKeyPress}
                 disabled={remainingMessages <= 0 || isConnecting}
-                ref={(el) => setInputElement(el)}
+                ref={inputRef}
               />
               <InputRightElement width="4.5rem">
                 <HStack spacing={0}>
                   {remainingMessages > 0 ? (
                     <>
-                      <Popover placement="top-end">
+                      <Popover placement="top-end" isLazy>
                         <PopoverTrigger>
                           <IconButton
                             aria-label="Emoji"
@@ -884,56 +935,7 @@ export const ChatInterface = ({
                                     </Tab>
                                   ))}
                                 </TabList>
-                                <TabPanels>
-                                  {emojiCategories.map((category) => (
-                                    <TabPanel key={category} p={1}>
-                                      <Flex
-                                        flexWrap="wrap"
-                                        justifyContent="flex-start"
-                                        maxH="200px"
-                                        overflowY="auto"
-                                        css={{
-                                          "&::-webkit-scrollbar": {
-                                            width: "4px",
-                                          },
-                                          "&::-webkit-scrollbar-track": {
-                                            width: "6px",
-                                          },
-                                          "&::-webkit-scrollbar-thumb": {
-                                            background: "rgba(0,0,0,0.1)",
-                                            borderRadius: "24px",
-                                          },
-                                        }}
-                                      >
-                                        {agoraRTMService
-                                          .getEmojisByCategory(
-                                            category as keyof typeof agoraRTMService.emojis
-                                          )
-                                          .map((emoji) => (
-                                            <Box
-                                              key={emoji}
-                                              as="button"
-                                              p={2}
-                                              fontSize="xl"
-                                              onClick={() =>
-                                                handleInsertEmoji(emoji)
-                                              }
-                                              _hover={{ bg: "gray.100" }}
-                                              borderRadius="md"
-                                              width="40px"
-                                              height="40px"
-                                              display="flex"
-                                              alignItems="center"
-                                              justifyContent="center"
-                                              m={0.5}
-                                            >
-                                              {emoji}
-                                            </Box>
-                                          ))}
-                                      </Flex>
-                                    </TabPanel>
-                                  ))}
-                                </TabPanels>
+                                <TabPanels>{memoizedEmojiPanels}</TabPanels>
                               </Tabs>
                             </Box>
                           </PopoverBody>
@@ -978,11 +980,11 @@ export const ChatInterface = ({
                 onChange={(e) => setMessageText(e.target.value)}
                 onKeyPress={handleKeyPress}
                 disabled={isConnecting}
-                ref={(el) => setInputElement(el)}
+                ref={inputRef}
               />
               <InputRightElement width="8rem">
                 <HStack spacing={1}>
-                  <Popover placement="top-end">
+                  <Popover placement="top-end" isLazy>
                     <PopoverTrigger>
                       <IconButton
                         aria-label="Emoji"
@@ -1016,56 +1018,7 @@ export const ChatInterface = ({
                                 </Tab>
                               ))}
                             </TabList>
-                            <TabPanels>
-                              {emojiCategories.map((category) => (
-                                <TabPanel key={category} p={1}>
-                                  <Flex
-                                    flexWrap="wrap"
-                                    justifyContent="flex-start"
-                                    maxH="200px"
-                                    overflowY="auto"
-                                    css={{
-                                      "&::-webkit-scrollbar": {
-                                        width: "4px",
-                                      },
-                                      "&::-webkit-scrollbar-track": {
-                                        width: "6px",
-                                      },
-                                      "&::-webkit-scrollbar-thumb": {
-                                        background: "rgba(0,0,0,0.1)",
-                                        borderRadius: "24px",
-                                      },
-                                    }}
-                                  >
-                                    {agoraRTMService
-                                      .getEmojisByCategory(
-                                        category as keyof typeof agoraRTMService.emojis
-                                      )
-                                      .map((emoji) => (
-                                        <Box
-                                          key={emoji}
-                                          as="button"
-                                          p={2}
-                                          fontSize="xl"
-                                          onClick={() =>
-                                            handleInsertEmoji(emoji)
-                                          }
-                                          _hover={{ bg: "gray.100" }}
-                                          borderRadius="md"
-                                          width="40px"
-                                          height="40px"
-                                          display="flex"
-                                          alignItems="center"
-                                          justifyContent="center"
-                                          m={0.5}
-                                        >
-                                          {emoji}
-                                        </Box>
-                                      ))}
-                                  </Flex>
-                                </TabPanel>
-                              ))}
-                            </TabPanels>
+                            <TabPanels>{memoizedEmojiPanels}</TabPanels>
                           </Tabs>
                         </Box>
                       </PopoverBody>

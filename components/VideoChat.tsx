@@ -93,7 +93,7 @@ export const VideoChat = () => {
 
       return () => clearInterval(messageInterval);
     }
-  }, [isSearching]);
+  }, [isSearching, waitingMessages]);
 
   useEffect(() => {
     // Import AgoraRTC only on client-side

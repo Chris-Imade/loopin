@@ -38,12 +38,16 @@ export const ContactCard: React.FC<ContactCardProps> = ({
   const { name, avatar, lastMessage, lastMessageTime, unreadCount, online } =
     contact;
 
+  // Move all color mode values to the top of the component
   const activeBg = useColorModeValue("blue.50", "blue.900");
   const hoverBg = useColorModeValue("gray.100", "gray.700");
+  const lightBorderColor = useColorModeValue("blue.500", "blue.400");
+  const darkBorderColor = useColorModeValue("gray.200", "gray.700");
+  const badgeBorderColor = useColorModeValue("white", "gray.800");
+
+  // Compute derived values from hooks
   const bg = isActive ? activeBg : "transparent";
-  const borderColor = isActive
-    ? useColorModeValue("blue.500", "blue.400")
-    : useColorModeValue("gray.200", "gray.700");
+  const borderColor = isActive ? lightBorderColor : darkBorderColor;
 
   return (
     <Box
@@ -69,7 +73,7 @@ export const ContactCard: React.FC<ContactCardProps> = ({
               bg="green.400"
               boxSize="12px"
               border="2px solid"
-              borderColor={useColorModeValue("white", "gray.800")}
+              borderColor={badgeBorderColor}
             />
           )}
         </Box>

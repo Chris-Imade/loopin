@@ -26,6 +26,11 @@ import {
   StatLabel,
   StatNumber,
   StatHelpText,
+  useColorMode,
+  Alert,
+  AlertIcon,
+  AlertTitle,
+  AlertDescription,
 } from "@chakra-ui/react";
 import { updateDoc, doc } from "firebase/firestore";
 import { db } from "../firebase/config";
@@ -34,6 +39,8 @@ import {
   SparklesIcon,
   CurrencyDollarIcon,
   ArrowRightIcon,
+  WifiIcon,
+  ExclamationCircleIcon,
 } from "@heroicons/react/24/solid";
 import { useRouter } from "next/router";
 
@@ -238,7 +245,15 @@ const countries = [
 
 const ProfilePage = () => {
   const { user, isLoading } = useUserStore();
-  const { coins, isLoading: coinsLoading, loadUserCoins } = useCoinStore();
+  const {
+    coins,
+    isLoading: coinsLoading,
+    isOffline,
+    errorMessage,
+    loadUserCoins,
+    clearError,
+    setOfflineStatus,
+  } = useCoinStore();
   const router = useRouter();
   const toast = useToast();
   const [isSaving, setIsSaving] = useState(false);
@@ -249,6 +264,7 @@ const ProfilePage = () => {
     displayName: "",
     subscriptionType: "",
   });
+  const { colorMode, toggleColorMode } = useColorMode();
 
   // Updated subscription plans with both monthly and yearly options
   const plans = [
@@ -323,6 +339,35 @@ const ProfilePage = () => {
     }
   }, [user, isLoading, loadUserCoins]);
 
+  // Watch for online/offline status changes
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log("App is online");
+      setOfflineStatus(false);
+      if (user) {
+        loadUserCoins(user.uid);
+      }
+    };
+
+    const handleOffline = () => {
+      console.log("App is offline");
+      setOfflineStatus(true);
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    // Check initial status
+    if (!navigator.onLine) {
+      handleOffline();
+    }
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [user, loadUserCoins, setOfflineStatus]);
+
   const handleSaveProfile = async () => {
     if (!user) return;
 
@@ -396,6 +441,25 @@ const ProfilePage = () => {
   return (
     <Layout>
       <Container maxW="md" py={8}>
+        {/* Show error message if present */}
+        {errorMessage && !isOffline && (
+          <Alert status="error" mb={4} borderRadius="md">
+            <AlertIcon />
+            <Box>
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{errorMessage}</AlertDescription>
+            </Box>
+            <Button
+              size="sm"
+              leftIcon={<ExclamationCircleIcon width={14} height={14} />}
+              ml="auto"
+              onClick={clearError}
+            >
+              Dismiss
+            </Button>
+          </Alert>
+        )}
+
         <VStack spacing={8} align="stretch">
           <VStack spacing={4} align="center">
             <Avatar
@@ -457,6 +521,11 @@ const ProfilePage = () => {
               <Box>
                 <Heading size="md" mb={1}>
                   Loopin Coins
+                  {isOffline && (
+                    <Badge ml={2} colorScheme="yellow" variant="subtle">
+                      Offline Mode
+                    </Badge>
+                  )}
                 </Heading>
                 <Stat>
                   <StatNumber
@@ -470,16 +539,28 @@ const ProfilePage = () => {
                       `${coins} 🪙`
                     )}
                   </StatNumber>
-                  <StatHelpText>Available to spend</StatHelpText>
+                  <StatHelpText>
+                    {isOffline
+                      ? "Using cached data - Connect to update"
+                      : "Available to spend"}
+                  </StatHelpText>
                 </Stat>
               </Box>
               <Button
-                rightIcon={<ArrowRightIcon width={16} height={16} />}
-                colorScheme="blue"
+                rightIcon={
+                  isOffline ? (
+                    <WifiIcon width={16} height={16} />
+                  ) : (
+                    <ArrowRightIcon width={16} height={16} />
+                  )
+                }
+                colorScheme={isOffline ? "yellow" : "blue"}
                 size="sm"
-                onClick={() => router.push("/coins")}
+                onClick={() =>
+                  isOffline ? loadUserCoins(user.uid) : router.push("/coins")
+                }
               >
-                Get More
+                {isOffline ? "Retry" : "Get More"}
               </Button>
             </Flex>
           </Box>
@@ -529,6 +610,17 @@ const ProfilePage = () => {
                       allowInternationalMatching: e.target.checked,
                     })
                   }
+                />
+              </FormControl>
+
+              <FormControl display="flex" alignItems="center">
+                <FormLabel htmlFor="color-mode" mb="0">
+                  Dark mode
+                </FormLabel>
+                <Switch
+                  id="color-mode"
+                  isChecked={colorMode === "dark"}
+                  onChange={toggleColorMode}
                 />
               </FormControl>
 

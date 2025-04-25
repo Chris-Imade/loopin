@@ -1,31 +1,10 @@
 import { ReactNode } from "react";
-import {
-  Box,
-  ChakraProvider,
-  Container,
-  useColorModeValue,
-} from "@chakra-ui/react";
+import { Box, Container, useColorModeValue } from "@chakra-ui/react";
 import { BottomNav } from "./navigation/BottomNav";
 import { useRouter } from "next/router";
 import { useUserStore } from "../store/userStore";
 import { motion } from "framer-motion";
-import { extendTheme } from "@chakra-ui/react";
 import Head from "next/head";
-
-const theme = extendTheme({
-  styles: {
-    global: {
-      "html, body": {
-        backgroundColor: "gray.900",
-        color: "white",
-      },
-    },
-  },
-  config: {
-    initialColorMode: "dark",
-    useSystemColorMode: false,
-  },
-});
 
 interface LayoutProps {
   children: ReactNode;
@@ -35,7 +14,7 @@ interface LayoutProps {
 export const Layout = ({ children, hideBottomNav = false }: LayoutProps) => {
   const router = useRouter();
   const { user, isLoading } = useUserStore();
-  const bgColor = useColorModeValue("gray.900", "gray.900"); // Keep dark theme consistent
+  const bgColor = useColorModeValue("gray.50", "gray.900"); // Allow light mode
 
   // Only show bottom nav for logged in users
   const showBottomNav = user && !hideBottomNav && !isLoading;
