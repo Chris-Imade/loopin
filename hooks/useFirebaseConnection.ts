@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { db } from "../firebase/config";
+import { db, rtdb } from "../firebase/config";
 import { getDatabase, ref, onValue } from "firebase/database";
 import {
   getFirestore,
@@ -48,8 +48,7 @@ export const useFirebaseConnection = () => {
     // Try to set up Firebase connection monitoring if Realtime Database is available
     let unsubscribe: (() => void) | null = null;
     try {
-      const database = getDatabase();
-      const connectedRef = ref(database, ".info/connected");
+      const connectedRef = ref(rtdb, ".info/connected");
 
       unsubscribe = onValue(connectedRef, (snapshot) => {
         const connected = snapshot.val();

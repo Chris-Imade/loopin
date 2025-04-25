@@ -3,6 +3,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getFunctions } from "firebase/functions";
+import { getDatabase } from "firebase/database";
 
 console.log("[FIREBASE] Starting Firebase initialization");
 
@@ -15,6 +16,7 @@ console.log("[FIREBASE] Environment variables check:", {
   hasStorageBucket: !!process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   hasMessagingSenderId: !!process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   hasAppId: !!process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  hasDatabaseURL: !!process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
 });
 
 // Step 2: Create the Firebase configuration object
@@ -25,6 +27,7 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
 };
 
 console.log("[FIREBASE] Config created");
@@ -60,7 +63,10 @@ const storage = getStorage(app);
 console.log("[FIREBASE] Initializing Functions service");
 const functions = getFunctions(app);
 
+console.log("[FIREBASE] Initializing Realtime Database service");
+const rtdb = getDatabase(app);
+
 console.log("[FIREBASE] All Firebase services initialized successfully");
 
 // Export the Firebase services
-export { app, auth, db, storage, functions };
+export { app, auth, db, storage, functions, rtdb };

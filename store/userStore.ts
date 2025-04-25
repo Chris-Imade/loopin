@@ -53,6 +53,12 @@ export const useUserStore = create<UserState>((set, get) => ({
     try {
       set({ isLoading: true, authError: null });
       const provider = new GoogleAuthProvider();
+
+      // Configure auth settings to handle COOP policy
+      provider.setCustomParameters({
+        prompt: "select_account",
+      });
+
       const result = await signInWithPopup(auth, provider);
 
       // For demo purposes, randomly assign premium status
@@ -101,6 +107,12 @@ export const useUserStore = create<UserState>((set, get) => ({
     try {
       set({ isLoading: true, authError: null });
       const provider = new OAuthProvider("apple.com");
+
+      // Configure auth settings to handle COOP policy
+      provider.setCustomParameters({
+        prompt: "select_account",
+      });
+
       const result = await signInWithPopup(auth, provider);
 
       // For demo purposes, randomly assign premium status

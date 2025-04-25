@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Text,
@@ -27,36 +27,52 @@ export const ConnectionStatusHandler: React.FC<
     useFirebaseConnection();
   const toast = useToast();
   const toastIdRef = React.useRef<string | number | undefined>(undefined);
+  const [showAlert, setShowAlert] = useState(false);
 
   // Handle connection changes
   useEffect(() => {
+    // Close any existing toasts first to prevent duplicates
+    if (toastIdRef.current) {
+      toast.close(toastIdRef.current);
+      toastIdRef.current = undefined;
+    }
+
     if (!isOnline) {
       // Device is offline
-      if (!toastIdRef.current) {
-        toastIdRef.current = toast({
-          title: "You are offline",
-          description: "Using cached data. Some features may be limited.",
-          status: "warning",
-          duration: null,
-          isClosable: true,
-          position: "top",
-        });
-      }
+      setShowAlert(true);
+      toastIdRef.current = toast({
+        title: "You are offline",
+        description: "Using cached data. Some features may be limited.",
+        status: "warning",
+        duration: null,
+        isClosable: true,
+        position: "top",
+        onCloseComplete: () => {
+          toastIdRef.current = undefined;
+          // Hide the alert when toast is closed
+          setShowAlert(false);
+        },
+      });
     } else if (!isFirebaseConnected && isOnline) {
       // Online but Firebase disconnected
-      if (!toastIdRef.current) {
-        toastIdRef.current = toast({
-          title: "Connection issues",
-          description:
-            "Connected to the internet but having trouble reaching our servers.",
-          status: "error",
-          duration: null,
-          isClosable: true,
-          position: "top",
-        });
-      }
+      setShowAlert(true);
+      toastIdRef.current = toast({
+        title: "Connection issues",
+        description:
+          "Connected to the internet but having trouble reaching our servers.",
+        status: "error",
+        duration: null,
+        isClosable: true,
+        position: "top",
+        onCloseComplete: () => {
+          toastIdRef.current = undefined;
+          // Hide the alert when toast is closed
+          setShowAlert(false);
+        },
+      });
     } else {
       // We're fully connected, close any existing toasts
+      setShowAlert(false);
       if (toastIdRef.current) {
         toast.close(toastIdRef.current);
         toastIdRef.current = undefined;
@@ -67,6 +83,7 @@ export const ConnectionStatusHandler: React.FC<
       // Clean up toast on unmount
       if (toastIdRef.current) {
         toast.close(toastIdRef.current);
+        toastIdRef.current = undefined;
       }
     };
   }, [isOnline, isFirebaseConnected, toast]);
@@ -84,6 +101,10 @@ export const ConnectionStatusHandler: React.FC<
         title: "Connection restored",
         status: "success",
         duration: 3000,
+        isClosable: true,
+        onCloseComplete: () => {
+          setShowAlert(false);
+        },
       });
     } else {
       toast({
@@ -91,12 +112,21 @@ export const ConnectionStatusHandler: React.FC<
         description: "Please check your internet connection and try again.",
         status: "error",
         duration: 5000,
+        isClosable: true,
       });
     }
   };
 
-  // Only render when there's a connection issue
-  if (isOnline && isFirebaseConnected) {
+  const handleCloseAlert = () => {
+    setShowAlert(false);
+    if (toastIdRef.current) {
+      toast.close(toastIdRef.current);
+      toastIdRef.current = undefined;
+    }
+  };
+
+  // Only render when there's a connection issue and alert should be shown
+  if ((isOnline && isFirebaseConnected) || !showAlert) {
     return null;
   }
 
@@ -139,12 +169,7 @@ export const ConnectionStatusHandler: React.FC<
         position="absolute"
         right="8px"
         top="8px"
-        onClick={() => {
-          if (toastIdRef.current) {
-            toast.close(toastIdRef.current);
-            toastIdRef.current = undefined;
-          }
-        }}
+        onClick={handleCloseAlert}
       />
     </Alert>
   );
