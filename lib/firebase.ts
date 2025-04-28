@@ -1,32 +1,23 @@
-import {
-  disableNetwork,
-  enableNetwork,
-  waitForPendingWrites,
-  doc,
-  onSnapshot,
-} from "firebase/firestore";
-import { db } from "../firebase/config";
+import { auth } from "../firebase/config";
 
-// Network status handling
+// Network status handling - simplified version focusing on auth connectivity
 export const handleNetworkStatus = () => {
   if (typeof window !== "undefined") {
     window.addEventListener("online", () => {
-      console.log("App is online. Reconnecting to Firestore...");
-      enableNetwork(db).then(() => {
-        console.log("Firestore network connection re-established");
-      });
+      console.log(
+        "App is online. Firebase services should reconnect automatically."
+      );
     });
 
     window.addEventListener("offline", () => {
-      console.log("App is offline. Disabling Firestore network connection...");
-      disableNetwork(db).then(() => {
-        console.log("Firestore network connection disabled");
-      });
+      console.log(
+        "App is offline. Some authentication features may be limited."
+      );
     });
   }
 };
 
-// Initialize subscription listener with proper error handling
+// Create a simplified mock subscription listener
 export const initializeSubscriptionListener = (
   userId: string,
   onSubscriptionUpdate: (status: string) => void
@@ -36,43 +27,10 @@ export const initializeSubscriptionListener = (
     return () => {};
   }
 
-  try {
-    // Ensure pending writes are completed when possible
-    waitForPendingWrites(db).catch((err) => {
-      console.warn("Pending writes could not be completed:", err.message);
-    });
-
-    return onSnapshot(
-      doc(db, "users", userId),
-      (docSnapshot) => {
-        if (docSnapshot.exists()) {
-          const data = docSnapshot.data();
-          if (data?.subscriptionStatus) {
-            onSubscriptionUpdate(data.subscriptionStatus);
-          }
-        } else {
-          console.log(`No user document found for ID: ${userId}`);
-          onSubscriptionUpdate("not_found");
-        }
-      },
-      (error) => {
-        console.error("Error in subscription listener:", error);
-        // Return a graceful error to the callback rather than crashing
-        if (
-          error.code === "unavailable" ||
-          error.message?.includes("offline") ||
-          error.code === "permission-denied"
-        ) {
-          onSubscriptionUpdate("offline");
-        } else {
-          // For other errors, we still want to inform the UI
-          onSubscriptionUpdate("error");
-        }
-      }
-    );
-  } catch (error) {
-    console.error("Failed to initialize subscription listener:", error);
-    // Return a no-op unsubscribe function
-    return () => {};
-  }
+  // Just return a dummy function - MongoDB will handle this now
+  console.log(
+    `[Firebase] Subscription status for ${userId} will be handled by MongoDB`
+  );
+  onSubscriptionUpdate("free");
+  return () => {};
 };

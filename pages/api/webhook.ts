@@ -1,8 +1,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import Stripe from "stripe";
 import { buffer } from "micro";
-import { doc, getDoc, updateDoc, increment } from "firebase/firestore";
-import { db } from "../../firebase/config";
+import { connectToDatabase } from "../../lib/mongodb";
+import { updateUserSubscription } from "../../lib/models/user";
 
 export const config = {
   api: {
@@ -15,6 +15,32 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
+
+/**
+ * Update user's coin balance in MongoDB
+ * @param {string} userId Firebase UID of the user
+ * @param {number} amount Number of coins to add
+ * @returns {Promise<boolean>} Success status
+ */
+async function addCoinsToUser(userId, amount) {
+  try {
+    const { db } = await connectToDatabase();
+    const usersCollection = db.collection("users");
+
+    const result = await usersCollection.updateOne(
+      { uid: userId },
+      {
+        $inc: { coins: amount },
+        $set: { updatedAt: new Date() },
+      }
+    );
+
+    return result.modifiedCount > 0;
+  } catch (error) {
+    console.error("Error adding coins to user:", error);
+    return false;
+  }
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -49,13 +75,26 @@ export default async function handler(
           const userId = session.metadata.userId;
           const planId = session.metadata.planId;
 
-          // Update user's premium status and subscription type
-          await updateDoc(doc(db, "users", userId), {
-            isPremium: true,
-            subscriptionId: session.subscription as string,
-            subscriptionType: planId,
-            updatedAt: new Date().toISOString(),
-          });
+          // Update user's premium status and subscription type in MongoDB
+          const subscriptionUpdated = await updateUserSubscription(
+            userId,
+            planId
+          );
+
+          // Also update additional subscription details
+          const { db } = await connectToDatabase();
+          const usersCollection = db.collection("users");
+
+          await usersCollection.updateOne(
+            { uid: userId },
+            {
+              $set: {
+                isPremium: true,
+                subscriptionId: session.subscription as string,
+                updatedAt: new Date(),
+              },
+            }
+          );
 
           console.log(
             `Updated subscription for user ${userId} to plan ${planId}`
@@ -73,12 +112,16 @@ export default async function handler(
           }
 
           if (freeCoins > 0) {
-            await updateDoc(doc(db, "users", userId), {
-              coins: increment(freeCoins),
-            });
-            console.log(
-              `Added ${freeCoins} free coins to user ${userId} for ${planId} subscription`
-            );
+            // Add coins to user in MongoDB
+            const coinsAdded = await addCoinsToUser(userId, freeCoins);
+
+            if (coinsAdded) {
+              console.log(
+                `Added ${freeCoins} free coins to user ${userId} for ${planId} subscription`
+              );
+            } else {
+              console.error(`Failed to add coins to user ${userId}`);
+            }
           }
         } catch (error) {
           console.error("Error processing subscription:", error);
@@ -94,12 +137,14 @@ export default async function handler(
           const userId = session.metadata.userId;
           const coinsAmount = parseInt(session.metadata.coins, 10);
 
-          // Add coins to user's balance
-          await updateDoc(doc(db, "users", userId), {
-            coins: increment(coinsAmount),
-          });
+          // Add coins to user's balance in MongoDB
+          const coinsAdded = await addCoinsToUser(userId, coinsAmount);
 
-          console.log(`Added ${coinsAmount} coins to user ${userId}`);
+          if (coinsAdded) {
+            console.log(`Added ${coinsAmount} coins to user ${userId}`);
+          } else {
+            console.error(`Failed to add coins to user ${userId}`);
+          }
         } catch (error) {
           console.error("Error processing coin purchase:", error);
           return res

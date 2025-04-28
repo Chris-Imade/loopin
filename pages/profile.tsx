@@ -32,8 +32,6 @@ import {
   AlertTitle,
   AlertDescription,
 } from "@chakra-ui/react";
-import { updateDoc, doc } from "firebase/firestore";
-import { db } from "../firebase/config";
 import { motion } from "framer-motion";
 import {
   SparklesIcon,
@@ -373,12 +371,27 @@ const ProfilePage = () => {
 
     setIsSaving(true);
     try {
-      // Update user document in Firestore
-      await updateDoc(doc(db, "users", user.uid), {
-        country: userData.country,
-        allowInternationalMatching: userData.allowInternationalMatching,
-        // Don't update premium status here - that would be handled by the payment system
+      // Use fetch to call our MongoDB API endpoint instead of Firebase
+      const response = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await user.getIdToken()}`,
+        },
+        body: JSON.stringify({
+          country: userData.country,
+          allowInternationalMatching: userData.allowInternationalMatching,
+          // Additional user data can be included here
+        }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update profile");
+      }
+
+      // Get the updated user data
+      const result = await response.json();
 
       toast({
         title: "Profile updated",
@@ -390,6 +403,8 @@ const ProfilePage = () => {
       console.error("Error updating profile:", error);
       toast({
         title: "Error updating profile",
+        description:
+          error instanceof Error ? error.message : "Unknown error occurred",
         status: "error",
         duration: 3000,
         isClosable: true,

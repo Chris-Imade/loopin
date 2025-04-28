@@ -1,7 +1,5 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { doc, getDoc, updateDoc, increment } from "firebase/firestore";
-import { db } from "../firebase/config";
 
 interface CoinPackage {
   id: string;
@@ -57,6 +55,18 @@ export const coinPackages: CoinPackage[] = [
 // Daily login reward amount
 const DAILY_REWARD_AMOUNT = 10;
 
+// Helper to check if we're in development mode
+const isDevelopment =
+  typeof window !== "undefined" &&
+  (window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1");
+
+// Mock coin data for development when APIs are not available
+const MOCK_COIN_DATA = {
+  coins: 100,
+  lastUpdated: new Date().toISOString(),
+};
+
 // Helper to check if the error is related to being offline
 const isOfflineError = (error: any): boolean => {
   if (!error) return false;
@@ -66,23 +76,26 @@ const isOfflineError = (error: any): boolean => {
     return true;
   }
 
-  // Check for common Firebase offline error codes and messages
+  // Check for common network error messages
   return (
-    error.code === "failed-precondition" ||
-    error.code === "unavailable" ||
-    error.code === "unimplemented" ||
-    error.code?.includes("offline") ||
     error.message?.includes("offline") ||
     error.message?.includes("network") ||
     error.message?.includes("unavailable") ||
     error.message?.includes("failed to get") ||
     error.message?.includes("transaction failed") ||
-    error.name === "FirebaseError" ||
-    // Check for GRPC status codes used by Firebase
-    error.code === "resource-exhausted" ||
-    error.code === "internal" ||
-    error.code === "deadline-exceeded"
+    error.status === 503 ||
+    error.status === 504
   );
+};
+
+// Helper function to get user token for API requests
+const getUserToken = async (): Promise<string> => {
+  // Get the current user token from Firebase Auth
+  const auth = (await import("firebase/auth")).getAuth();
+  if (!auth.currentUser) {
+    throw new Error("User not authenticated");
+  }
+  return auth.currentUser.getIdToken();
 };
 
 export const useCoinStore = create<CoinState>()(
@@ -119,34 +132,50 @@ export const useCoinStore = create<CoinState>()(
         }
 
         try {
-          const userDoc = await getDoc(doc(db, "users", userId));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            set({
-              coins: userData.coins || 0,
-              isOffline: false,
-            });
-          } else {
-            // Initialize coins if user document doesn't have them
-            try {
-              await updateDoc(doc(db, "users", userId), {
-                coins: 0,
-              });
-              set({ coins: 0, isOffline: false });
-            } catch (initError: any) {
-              console.log("Could not initialize user coins, using local value");
+          // Get user token for authentication
+          const token = await getUserToken();
 
-              if (isOfflineError(initError)) {
-                set({
-                  isOffline: true,
-                  errorMessage:
-                    "Unable to connect to server. Using cached data.",
-                });
-              }
+          // Get user data from MongoDB API
+          const response = await fetch(`/api/user/coins?userId=${userId}`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (!response.ok) {
+            // If in development mode and API fails, use mock data
+            if (isDevelopment) {
+              console.log("Using mock coin data in development mode");
+              set({
+                coins: MOCK_COIN_DATA.coins,
+                isOffline: false,
+                isLoading: false,
+              });
+              return;
             }
+            throw new Error(`Failed to load coins: ${response.statusText}`);
           }
+
+          const data = await response.json();
+
+          set({
+            coins: data.coins || 0,
+            isOffline: false,
+          });
         } catch (error: any) {
           console.error("Error loading user coins:", error);
+
+          // For development, provide mock data even if API fails
+          if (isDevelopment) {
+            console.log("Using mock coin data in development due to API error");
+            set({
+              coins: MOCK_COIN_DATA.coins,
+              isOffline: false,
+              isLoading: false,
+              errorMessage: "Using mock coin data - API error in development",
+            });
+            return;
+          }
 
           // Check if it's an offline error
           if (isOfflineError(error)) {
@@ -183,13 +212,42 @@ export const useCoinStore = create<CoinState>()(
         }
 
         try {
-          await updateDoc(doc(db, "users", userId), {
-            coins: increment(amount),
+          // Get user token for authentication
+          const token = await getUserToken();
+
+          // In development mode, simulate successful API call
+          if (isDevelopment) {
+            const newTotal = get().coins + amount;
+            console.log(`[DEV] Adding ${amount} coins. New total: ${newTotal}`);
+
+            // Update local state
+            set((state) => ({
+              coins: newTotal,
+              isOffline: false,
+            }));
+
+            return;
+          }
+
+          // Add coins via MongoDB API
+          const response = await fetch("/api/user/coins", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ userId, amount }),
           });
+
+          if (!response.ok) {
+            throw new Error(`Failed to add coins: ${response.statusText}`);
+          }
+
+          const data = await response.json();
 
           // Update local state
           set((state) => ({
-            coins: state.coins + amount,
+            coins: data.newTotal || state.coins + amount,
             isOffline: false,
           }));
         } catch (error: any) {
@@ -233,13 +291,44 @@ export const useCoinStore = create<CoinState>()(
         }
 
         try {
-          await updateDoc(doc(db, "users", userId), {
-            coins: increment(-amount),
+          // Get user token for authentication
+          const token = await getUserToken();
+
+          // In development mode, simulate successful API call
+          if (isDevelopment) {
+            const newTotal = get().coins - amount;
+            console.log(
+              `[DEV] Spending ${amount} coins. New total: ${newTotal}`
+            );
+
+            // Update local state
+            set((state) => ({
+              coins: newTotal,
+              isOffline: false,
+            }));
+
+            return true;
+          }
+
+          // Spend coins via MongoDB API
+          const response = await fetch("/api/user/coins/spend", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ userId, amount }),
           });
+
+          if (!response.ok) {
+            throw new Error(`Failed to spend coins: ${response.statusText}`);
+          }
+
+          const data = await response.json();
 
           // Update local state
           set((state) => ({
-            coins: state.coins - amount,
+            coins: data.newTotal || state.coins - amount,
             isOffline: false,
           }));
           return true;
@@ -256,7 +345,7 @@ export const useCoinStore = create<CoinState>()(
             set({ errorMessage: error.message || "Failed to spend coins" });
           }
 
-          return false;
+          throw error;
         }
       },
 
@@ -284,14 +373,47 @@ export const useCoinStore = create<CoinState>()(
         }
 
         try {
-          await updateDoc(doc(db, "users", userId), {
-            coins: increment(DAILY_REWARD_AMOUNT),
-            lastDailyReward: today,
+          // In development mode, simulate successful API call
+          if (isDevelopment) {
+            console.log(
+              `[DEV] Claiming daily reward of ${DAILY_REWARD_AMOUNT} coins`
+            );
+
+            // Update local state
+            set((state) => ({
+              coins: state.coins + DAILY_REWARD_AMOUNT,
+              dailyRewardClaimed: true,
+              dailyRewardLastClaimed: today,
+              isOffline: false,
+            }));
+
+            return true;
+          }
+
+          // Get user token for authentication
+          const token = await getUserToken();
+
+          // Claim daily reward via API
+          const response = await fetch("/api/user/coins/claim", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ userId }),
           });
+
+          if (!response.ok) {
+            throw new Error(
+              `Failed to claim daily reward: ${response.statusText}`
+            );
+          }
+
+          const data = await response.json();
 
           // Update local state
           set((state) => ({
-            coins: state.coins + DAILY_REWARD_AMOUNT,
+            coins: data.newTotal || state.coins + DAILY_REWARD_AMOUNT,
             dailyRewardClaimed: true,
             dailyRewardLastClaimed: today,
             isOffline: false,

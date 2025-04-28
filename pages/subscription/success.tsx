@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Layout } from "../../components/Layout";
 import { useRouter } from "next/router";
 import { useCoinStore } from "../../store/coinStore";
@@ -15,6 +15,7 @@ import {
   Spinner,
   HStack,
   Badge,
+  useToast,
 } from "@chakra-ui/react";
 import { motion } from "framer-motion";
 import {
@@ -28,11 +29,16 @@ export const dynamic = "force-dynamic";
 
 const SuccessPage = () => {
   const router = useRouter();
-  const { user } = useUserStore();
-  const { coins } = useCoinStore();
+  const { user, setSubscriptionStatus } = useUserStore();
+  const { coins, loadUserCoins, addCoins } = useCoinStore();
   const [isProcessing, setIsProcessing] = useState(true);
   const [sessionId, setSessionId] = useState("");
   const [planName, setPlanName] = useState("");
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [initialCoins, setInitialCoins] = useState(0);
+  const [finalCoins, setFinalCoins] = useState(0);
+  const [bonusCoins, setBonusCoins] = useState(0);
+  const toast = useToast();
 
   // Get query params safely only on client-side
   useEffect(() => {
@@ -41,33 +47,110 @@ const SuccessPage = () => {
     }
   }, [router.isReady, router.query]);
 
+  // Save initial coin balance
   useEffect(() => {
-    // In a real implementation, you would verify the session with Stripe here
-    // For demo purposes, we'll just simulate a processing delay
-    if (!sessionId) return;
-
-    const timer = setTimeout(() => {
-      setIsProcessing(false);
-
-      // Set plan name based on user subscription type
-      if (user?.subscriptionType === "premium-monthly") {
-        setPlanName("Premium Monthly");
-      } else if (user?.subscriptionType === "premium-yearly") {
-        setPlanName("Premium Yearly");
-      } else if (user?.subscriptionType === "creator") {
-        setPlanName("Creator Plan");
-      }
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [sessionId, user?.subscriptionType]);
-
-  // Client-side only redirect
-  useEffect(() => {
-    if (!user && typeof window !== 'undefined') {
-      router.push("/");
+    if (coins > 0) {
+      setInitialCoins(coins);
     }
-  }, [user, router]);
+  }, [coins]);
+
+  // Handle verification of subscription with the server
+  const verifySubscription = useCallback(async () => {
+    if (!sessionId || !user) return;
+
+    try {
+      // In a real implementation, we would verify with our backend
+      // For now, simulate a network request
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      // Parse the subscription type from URL or use a default
+      const subscriptionType = router.query.plan || "premium-monthly";
+
+      // Update user's subscription status in state
+      if (typeof setSubscriptionStatus === "function") {
+        setSubscriptionStatus(subscriptionType as string);
+      }
+
+      // Track bonus coins amount
+      let coinBonus = 0;
+
+      // Set plan name based on subscription type
+      if (subscriptionType === "premium-monthly") {
+        setPlanName("Premium Monthly");
+        // Add bonus coins for premium monthly (50)
+        coinBonus = 50;
+      } else if (subscriptionType === "premium-yearly") {
+        setPlanName("Premium Yearly");
+        // Add bonus coins for premium yearly (100)
+        coinBonus = 100;
+      } else if (subscriptionType === "creator") {
+        setPlanName("Creator Plan");
+        // Add bonus coins for creator plan (150)
+        coinBonus = 150;
+      }
+
+      // Set the bonus for display
+      setBonusCoins(coinBonus);
+
+      // Add coins to user's account
+      if (coinBonus > 0) {
+        await addCoins(user.uid, coinBonus);
+      }
+
+      // Refresh user's coin balance after a brief delay to ensure the server has updated
+      setTimeout(async () => {
+        await loadUserCoins(user.uid);
+        setFinalCoins(coins + coinBonus);
+        setIsProcessing(false);
+      }, 1000);
+    } catch (error) {
+      console.error("Error verifying subscription:", error);
+      toast({
+        title: "Verification Error",
+        description:
+          "There was an error verifying your subscription. Please contact support.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setIsProcessing(false);
+    }
+  }, [
+    sessionId,
+    user,
+    router.query,
+    setSubscriptionStatus,
+    addCoins,
+    loadUserCoins,
+    coins,
+    toast,
+  ]);
+
+  useEffect(() => {
+    if (sessionId && user) {
+      verifySubscription();
+    }
+  }, [sessionId, user, verifySubscription]);
+
+  // Client-side only redirect - but only if explicitly triggered
+  const handleReturnToProfile = () => {
+    setIsRedirecting(true);
+    // Use hard navigation to ensure latest data
+    window.location.href = "/profile";
+  };
+
+  // Auto-redirect after a delay
+  useEffect(() => {
+    if (!isProcessing && !isRedirecting) {
+      const timer = setTimeout(() => {
+        // Auto-redirect after 10 seconds
+        setIsRedirecting(true);
+        window.location.href = "/profile";
+      }, 10000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isProcessing, isRedirecting]);
 
   const cardBg = useColorModeValue("white", "gray.700");
 
@@ -141,20 +224,33 @@ const SuccessPage = () => {
                   You now have access to all premium features!
                 </Text>
 
-                <Text fontWeight="bold" fontSize="lg" color="yellow.400">
-                  Current Coin Balance: {coins} 🪙
-                </Text>
+                <VStack spacing={1}>
+                  <Text fontSize="md" color="gray.500">
+                    Previous Balance: {initialCoins} 🪙
+                  </Text>
+                  <Text fontSize="md" color="green.500">
+                    Bonus Coins: +{bonusCoins} 🪙
+                  </Text>
+                  <Text fontWeight="bold" fontSize="lg" color="yellow.400">
+                    Current Balance: {finalCoins || coins} 🪙
+                  </Text>
+                </VStack>
 
-                <Button
-                  leftIcon={<ArrowLeftIcon width={16} height={16} />}
-                  colorScheme="blue"
-                  size="lg"
-                  width="full"
-                  onClick={() => router.push("/profile")}
-                  mt={4}
-                >
-                  Return to Profile
-                </Button>
+                <Box>
+                  <Text fontSize="sm" color="gray.500" mb={4}>
+                    You will be redirected to your profile automatically in a
+                    few seconds...
+                  </Text>
+                  <Button
+                    leftIcon={<ArrowLeftIcon width={16} height={16} />}
+                    colorScheme="blue"
+                    size="lg"
+                    width="full"
+                    onClick={handleReturnToProfile}
+                  >
+                    Return to Profile Now
+                  </Button>
+                </Box>
               </VStack>
             )}
           </Box>

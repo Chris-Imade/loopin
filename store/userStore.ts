@@ -11,7 +11,6 @@ import {
   AuthError,
 } from "firebase/auth";
 import { useEffect, useRef, useCallback } from "react";
-import { doc, getDoc, getFirestore } from "firebase/firestore";
 import { useToast } from "@chakra-ui/react";
 import { initializeSubscriptionListener } from "../lib/firebase";
 
