@@ -27,15 +27,33 @@ async function addCoinsToUser(userId, amount) {
     const { db } = await connectToDatabase();
     const usersCollection = db.collection("users");
 
+    // First get current balance to calculate new total
+    const user = await usersCollection.findOne({ uid: userId });
+    const currentCoins = user?.coins || 0;
+    const newTotal = currentCoins + amount;
+
+    console.log(
+      `Adding ${amount} coins to user ${userId}. Current balance: ${currentCoins}, New total: ${newTotal}`
+    );
+
     const result = await usersCollection.updateOne(
       { uid: userId },
       {
         $inc: { coins: amount },
         $set: { updatedAt: new Date() },
-      }
+      },
+      { upsert: true }
     );
 
-    return result.modifiedCount > 0;
+    if (result.modifiedCount === 0 && result.upsertedCount === 0) {
+      console.error(`Failed to update coin balance for user ${userId}`);
+      return false;
+    }
+
+    console.log(
+      `Successfully updated coin balance for user ${userId}. New total: ${newTotal}`
+    );
+    return true;
   } catch (error) {
     console.error("Error adding coins to user:", error);
     return false;
@@ -65,6 +83,7 @@ export default async function handler(
   // Handle the event
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
+    console.log("Processing checkout.session.completed event:", session.id);
 
     const isSubscription = session.metadata?.isSubscription === "true";
 
@@ -74,6 +93,10 @@ export default async function handler(
         try {
           const userId = session.metadata.userId;
           const planId = session.metadata.planId;
+
+          console.log(
+            `Processing subscription for user ${userId}, plan ${planId}`
+          );
 
           // Update user's premium status and subscription type in MongoDB
           const subscriptionUpdated = await updateUserSubscription(
@@ -137,6 +160,10 @@ export default async function handler(
           const userId = session.metadata.userId;
           const coinsAmount = parseInt(session.metadata.coins, 10);
 
+          console.log(
+            `Processing coin purchase for user ${userId}, amount: ${coinsAmount}`
+          );
+
           // Add coins to user's balance in MongoDB
           const coinsAdded = await addCoinsToUser(userId, coinsAmount);
 
@@ -144,6 +171,9 @@ export default async function handler(
             console.log(`Added ${coinsAmount} coins to user ${userId}`);
           } else {
             console.error(`Failed to add coins to user ${userId}`);
+            return res
+              .status(500)
+              .json({ error: "Failed to add coins to user" });
           }
         } catch (error) {
           console.error("Error processing coin purchase:", error);
@@ -151,8 +181,15 @@ export default async function handler(
             .status(500)
             .json({ error: "Failed to process coin purchase" });
         }
+      } else {
+        console.error("Missing metadata in session:", session.id);
+        return res
+          .status(400)
+          .json({ error: "Missing userId or coins in session metadata" });
       }
     }
+  } else {
+    console.log(`Received event ${event.type} - no action taken`);
   }
 
   res.status(200).json({ received: true });

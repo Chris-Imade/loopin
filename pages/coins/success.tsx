@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Layout } from "../../components/Layout";
 import { useRouter } from "next/router";
 import { useCoinStore } from "../../store/coinStore";
@@ -13,6 +13,7 @@ import {
   useColorModeValue,
   Icon,
   Spinner,
+  useToast,
 } from "@chakra-ui/react";
 import { motion } from "framer-motion";
 import { CheckCircleIcon, ArrowLeftIcon } from "@heroicons/react/24/solid";
@@ -23,9 +24,14 @@ export const dynamic = "force-dynamic";
 const SuccessPage = () => {
   const router = useRouter();
   const { user } = useUserStore();
-  const { coins } = useCoinStore();
+  const { coins, loadUserCoins } = useCoinStore();
   const [isProcessing, setIsProcessing] = useState(true);
   const [sessionId, setSessionId] = useState("");
+  const [initialCoins, setInitialCoins] = useState(0);
+  const [finalCoins, setFinalCoins] = useState(0);
+  const [addedCoins, setAddedCoins] = useState(0);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const toast = useToast();
 
   // Safe query parameter access
   useEffect(() => {
@@ -34,24 +40,121 @@ const SuccessPage = () => {
     }
   }, [router.isReady, router.query]);
 
+  // Save initial coins when component mounts
   useEffect(() => {
-    // In a real implementation, you would verify the session with Stripe here
-    // For demo purposes, we'll just simulate a processing delay
-    if (!sessionId) return;
-
-    const timer = setTimeout(() => {
-      setIsProcessing(false);
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [sessionId]);
-
-  // Client-side redirect
-  useEffect(() => {
-    if (!user && typeof window !== "undefined") {
-      router.push("/");
+    if (coins > 0) {
+      setInitialCoins(coins);
     }
-  }, [user, router]);
+  }, [coins]);
+
+  // Function to fetch coin data directly from the API
+  const fetchCoinData = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const response = await fetch(`/api/user/coins?userId=${user.uid}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch coin data: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.coins || 0;
+    } catch (error) {
+      console.error("Error fetching coin data:", error);
+      return 0;
+    }
+  }, [user]);
+
+  // Verify the purchase with the server
+  const verifyPurchase = useCallback(async () => {
+    if (!sessionId || !user) return;
+
+    try {
+      // First get the current coin balance
+      const currentBalance = await fetchCoinData();
+      setInitialCoins(currentBalance);
+
+      // Get the package info from the URL or session
+      const packageId = router.query.package_id;
+      let purchasedCoins = 0;
+
+      // Default values for different packages
+      switch (packageId) {
+        case "small":
+          purchasedCoins = 100;
+          break;
+        case "medium":
+          purchasedCoins = 300;
+          break;
+        case "large":
+          purchasedCoins = 750;
+          break;
+        default:
+          purchasedCoins = 100; // Default if not specified
+      }
+
+      setAddedCoins(purchasedCoins);
+
+      // In a real implementation, you would verify the sessionId with Stripe
+      // For now we'll wait for the database to update
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Fetch updated balance from the database
+      const updatedBalance = await fetchCoinData();
+      setFinalCoins(updatedBalance);
+
+      // Also update the store's coin balance
+      await loadUserCoins(user.uid);
+
+      // Complete processing
+      setIsProcessing(false);
+
+      // Show success message
+      toast({
+        title: "Purchase Successful!",
+        description: `${purchasedCoins} coins have been added to your account.`,
+        status: "success",
+        duration: 5000,
+        isClosable: true,
+      });
+    } catch (error) {
+      console.error("Error verifying purchase:", error);
+      toast({
+        title: "Verification Error",
+        description:
+          "There was an error processing your purchase. Please contact support.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      setIsProcessing(false);
+    }
+  }, [sessionId, user, router.query, fetchCoinData, loadUserCoins, toast]);
+
+  // Run verification when session ID is available
+  useEffect(() => {
+    if (sessionId && user) {
+      verifyPurchase();
+    }
+  }, [sessionId, user, verifyPurchase]);
+
+  // Auto-redirect after success
+  useEffect(() => {
+    if (!isProcessing && !isRedirecting) {
+      const timer = setTimeout(() => {
+        setIsRedirecting(true);
+        window.location.href = "/coins";
+      }, 8000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isProcessing, isRedirecting]);
+
+  // Client-side redirect function
+  const handleReturnToCoins = () => {
+    setIsRedirecting(true);
+    window.location.href = "/coins";
+  };
 
   const cardBg = useColorModeValue("white", "gray.700");
 
@@ -101,19 +204,34 @@ const SuccessPage = () => {
                 <Text fontSize="lg">
                   Your coins have been added to your balance.
                 </Text>
-                <Text fontWeight="bold" fontSize="2xl" color="yellow.400">
-                  Current Balance: {coins} 🪙
-                </Text>
-                <Button
-                  leftIcon={<ArrowLeftIcon width={16} height={16} />}
-                  colorScheme="blue"
-                  size="lg"
-                  width="full"
-                  onClick={() => router.push("/coins")}
-                  mt={4}
-                >
-                  Return to Coins
-                </Button>
+
+                <VStack spacing={1}>
+                  <Text fontSize="md" color="gray.500">
+                    Previous Balance: {initialCoins} 🪙
+                  </Text>
+                  <Text fontSize="md" color="green.500">
+                    Added Coins: +{addedCoins} 🪙
+                  </Text>
+                  <Text fontWeight="bold" fontSize="2xl" color="yellow.400">
+                    New Balance: {finalCoins} 🪙
+                  </Text>
+                </VStack>
+
+                <Box>
+                  <Text fontSize="sm" color="gray.500" mb={4}>
+                    You will be redirected to the coins page automatically in a
+                    few seconds...
+                  </Text>
+                  <Button
+                    leftIcon={<ArrowLeftIcon width={16} height={16} />}
+                    colorScheme="blue"
+                    size="lg"
+                    width="full"
+                    onClick={handleReturnToCoins}
+                  >
+                    Return to Coins Now
+                  </Button>
+                </Box>
               </VStack>
             )}
           </Box>

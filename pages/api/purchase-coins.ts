@@ -58,7 +58,7 @@ export default async function handler(
         packageId,
         coins: coinPackage.coins.toString(),
       },
-      success_url: `${req.headers.origin}/coins/success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${req.headers.origin}/coins/success?session_id={CHECKOUT_SESSION_ID}&package_id=${packageId}`,
       cancel_url: `${req.headers.origin}/coins/canceled`,
     });
 
