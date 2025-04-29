@@ -42,10 +42,10 @@ const SuccessPage = () => {
 
   // Save initial coins when component mounts
   useEffect(() => {
-    if (coins > 0) {
+    if (!initialCoins && coins >= 0) {
       setInitialCoins(coins);
     }
-  }, [coins]);
+  }, [coins, initialCoins]);
 
   // Function to fetch coin data directly from the API
   const fetchCoinData = useCallback(async () => {

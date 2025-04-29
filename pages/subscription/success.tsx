@@ -49,10 +49,28 @@ const SuccessPage = () => {
 
   // Save initial coin balance
   useEffect(() => {
-    if (coins > 0) {
+    if (!initialCoins && coins >= 0) {
       setInitialCoins(coins);
     }
-  }, [coins]);
+  }, [coins, initialCoins]);
+
+  // Function to fetch coin data directly from the API
+  const fetchCoinData = useCallback(async () => {
+    if (!user) return 0;
+
+    try {
+      const response = await fetch(`/api/user/coins?userId=${user.uid}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch coin data: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.coins || 0;
+    } catch (error) {
+      console.error("Error fetching coin data:", error);
+      return 0;
+    }
+  }, [user]);
 
   // Handle verification of subscription with the server
   const verifySubscription = useCallback(async () => {
@@ -92,6 +110,10 @@ const SuccessPage = () => {
       // Set the bonus for display
       setBonusCoins(coinBonus);
 
+      // Get current coins before adding bonus
+      const currentCoins = await fetchCoinData();
+      setInitialCoins(currentCoins);
+
       // Add coins to user's account
       if (coinBonus > 0) {
         await addCoins(user.uid, coinBonus);
@@ -99,10 +121,14 @@ const SuccessPage = () => {
 
       // Refresh user's coin balance after a brief delay to ensure the server has updated
       setTimeout(async () => {
+        // Update the store's coin balance
         await loadUserCoins(user.uid);
-        setFinalCoins(coins + coinBonus);
+
+        // Fetch the latest balance directly from the API for accurate display
+        const updatedCoins = await fetchCoinData();
+        setFinalCoins(updatedCoins);
         setIsProcessing(false);
-      }, 1000);
+      }, 2000);
     } catch (error) {
       console.error("Error verifying subscription:", error);
       toast({
@@ -122,7 +148,7 @@ const SuccessPage = () => {
     setSubscriptionStatus,
     addCoins,
     loadUserCoins,
-    coins,
+    fetchCoinData,
     toast,
   ]);
 

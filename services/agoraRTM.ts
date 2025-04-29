@@ -20,6 +20,9 @@ class AgoraRTMService {
   private appId: string;
   private ready = false;
   private userId = "";
+  private mediaRecorder: MediaRecorder | null = null;
+  private audioChunks: BlobPart[] = [];
+  private audioBlob: Blob | null = null;
 
   // Expanded emoji list with categories
   public emojis = {
@@ -399,6 +402,118 @@ class AgoraRTMService {
 
   isReady() {
     return this.ready;
+  }
+
+  // Audio recording methods
+  async startAudioRecording(): Promise<boolean> {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    try {
+      // Request microphone permission
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // Create media recorder
+      this.mediaRecorder = new MediaRecorder(stream);
+      this.audioChunks = [];
+
+      // Set up event handlers
+      this.mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.audioChunks.push(event.data);
+        }
+      };
+
+      // Start recording
+      this.mediaRecorder.start();
+      return true;
+    } catch (error) {
+      console.error("Error starting audio recording:", error);
+      return false;
+    }
+  }
+
+  async stopAudioRecording(): Promise<{ audioUrl: string; duration: number }> {
+    if (!this.mediaRecorder) {
+      throw new Error("Recording not started");
+    }
+
+    return new Promise((resolve, reject) => {
+      try {
+        this.mediaRecorder!.onstop = async () => {
+          // Create blob from recorded chunks
+          this.audioBlob = new Blob(this.audioChunks, { type: "audio/webm" });
+
+          // Create URL for the blob
+          const audioUrl = URL.createObjectURL(this.audioBlob);
+
+          // Get audio duration
+          const audioDuration = await this.getAudioDuration(this.audioBlob);
+
+          // Stop tracks to release microphone
+          const tracks = this.mediaRecorder!.stream.getTracks();
+          tracks.forEach((track) => track.stop());
+
+          resolve({
+            audioUrl,
+            duration: audioDuration,
+          });
+        };
+
+        // Stop recording
+        this.mediaRecorder.stop();
+      } catch (error) {
+        console.error("Error stopping audio recording:", error);
+        reject(error);
+      }
+    });
+  }
+
+  cancelAudioRecording(): void {
+    if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
+      // Stop the recording
+      this.mediaRecorder.stop();
+
+      // Release microphone
+      const tracks = this.mediaRecorder.stream.getTracks();
+      tracks.forEach((track) => track.stop());
+
+      // Clear the recorded data
+      this.audioChunks = [];
+      this.audioBlob = null;
+    }
+  }
+
+  private getAudioDuration(audioBlob: Blob): Promise<number> {
+    return new Promise((resolve) => {
+      const audioElement = new Audio();
+      audioElement.src = URL.createObjectURL(audioBlob);
+
+      audioElement.addEventListener("loadedmetadata", () => {
+        // Get duration in seconds
+        resolve(audioElement.duration);
+
+        // Clean up
+        URL.revokeObjectURL(audioElement.src);
+      });
+
+      // Handle errors and provide fallback duration
+      audioElement.addEventListener("error", () => {
+        console.warn("Error getting audio duration, using estimate");
+        // Estimate duration based on file size (rough estimate)
+        const fileSizeInKB = audioBlob.size / 1024;
+        const estimatedDuration = fileSizeInKB / 12; // ~12KB per second for WebM
+        resolve(estimatedDuration);
+      });
+    });
+  }
+
+  // Method to upload audio to storage and get a permanent URL
+  async uploadAudio(audioBlob: Blob): Promise<string> {
+    // In a real implementation, you would upload the blob to your storage service
+    // For now, we'll use the temporary object URL
+    return URL.createObjectURL(audioBlob);
   }
 }
 

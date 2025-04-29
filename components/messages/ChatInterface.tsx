@@ -40,141 +40,8 @@ import {
 } from "@heroicons/react/24/solid";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/router";
-
-// Mock Agora RTM Service
-const agoraRTMService = {
-  emojis: {
-    smileys: [
-      "😊",
-      "😂",
-      "😍",
-      "🙂",
-      "😎",
-      "😢",
-      "😭",
-      "🤔",
-      "😴",
-      "🥰",
-      "😀",
-      "😃",
-      "😄",
-      "😁",
-      "😆",
-      "😅",
-      "😉",
-      "😌",
-      "😚",
-      "😋",
-    ],
-    gestures: [
-      "👍",
-      "👎",
-      "👏",
-      "🙌",
-      "👋",
-      "✌️",
-      "🤞",
-      "👊",
-      "✋",
-      "🤚",
-      "🖐️",
-      "👐",
-      "🤲",
-      "🤝",
-      "🙏",
-      "👌",
-      "👈",
-      "👉",
-      "👆",
-      "👇",
-    ],
-    symbols: [
-      "❤️",
-      "💯",
-      "🔥",
-      "⭐",
-      "🎉",
-      "💩",
-      "👻",
-      "👀",
-      "💪",
-      "🙏",
-      "💕",
-      "💓",
-      "💖",
-      "💘",
-      "💝",
-      "💞",
-      "💌",
-      "💗",
-      "💜",
-      "💙",
-    ],
-    animals: [
-      "🐶",
-      "🐱",
-      "🐭",
-      "🐹",
-      "🐰",
-      "🦊",
-      "🐻",
-      "🐼",
-      "🐨",
-      "🐯",
-      "🦁",
-      "🐮",
-      "🐷",
-      "🐸",
-      "🐵",
-      "🐔",
-      "🐧",
-      "🐦",
-      "🐤",
-      "🦄",
-    ],
-    food: [
-      "🍎",
-      "🍐",
-      "🍊",
-      "🍋",
-      "🍌",
-      "🍉",
-      "🍇",
-      "🍓",
-      "🍈",
-      "🍒",
-      "🍑",
-      "🥭",
-      "🍍",
-      "🥥",
-      "🥝",
-      "🍅",
-      "🍆",
-      "🥑",
-      "🥦",
-      "🥙",
-    ],
-  },
-  init: async () => true,
-  joinChannel: async () => true,
-  isReady: () => true,
-  logout: () => {},
-  onMessage: (callback) => {},
-  sendMessageToPeer: async () => true,
-  getAllEmojis: () => {
-    return Object.values(agoraRTMService.emojis).flat();
-  },
-  getEmojisByCategory: (category) => {
-    return agoraRTMService.emojis[category] || [];
-  },
-  // Mock audio recording functions
-  startAudioRecording: async () => true,
-  stopAudioRecording: async () => ({
-    audioUrl: "mock-audio-url.m4a",
-    duration: 10.5,
-  }),
-  cancelAudioRecording: () => {},
-};
+import agoraRTMService from "../../services/agoraRTM";
+import audioRecordingService from "../../services/audioRecording";
 
 interface Message {
   id: string;
@@ -239,7 +106,7 @@ export const ChatInterface = ({
       setIsConnecting(true);
       try {
         // Initialize RTM with current user ID
-        const initSuccess = await agoraRTMService.init();
+        const initSuccess = await agoraRTMService.init(currentUserId);
         if (!initSuccess) {
           throw new Error("Failed to initialize Agora RTM");
         }
@@ -247,7 +114,7 @@ export const ChatInterface = ({
         // Create a direct messaging channel with contact
         // For 1-on-1 chat we'll use a convention channelName = sortedUserIds
         const channelName = [currentUserId, contact.id].sort().join("-");
-        const joinSuccess = await agoraRTMService.joinChannel();
+        const joinSuccess = await agoraRTMService.joinChannel(channelName);
         if (!joinSuccess) {
           throw new Error("Failed to join channel");
         }
@@ -255,16 +122,51 @@ export const ChatInterface = ({
         // Set up message listener
         agoraRTMService.onMessage((senderId, text) => {
           if (senderId === contact.id) {
-            const newMessage: Message = {
-              id: `msg-${Date.now()}`,
-              senderId,
-              text,
-              timestamp: new Date(),
-              read: true,
-              isEmoji: text.length <= 4 && !text.includes(" "),
-              isDelivered: true,
-            };
-            setMessages((prev) => [...prev, newMessage]);
+            // Parse the message - it might be JSON for rich content
+            try {
+              const parsedMessage = JSON.parse(text);
+              if (parsedMessage.type === "audio") {
+                // Handle audio message
+                const newMessage: Message = {
+                  id: `msg-${Date.now()}`,
+                  senderId,
+                  text: "🎤 Audio message",
+                  timestamp: new Date(),
+                  read: true,
+                  isAudio: true,
+                  audioDuration: parsedMessage.duration || 0,
+                  audioUrl: parsedMessage.url,
+                  isDelivered: true,
+                };
+                setMessages((prev) => [...prev, newMessage]);
+              } else {
+                // Handle other rich content types
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id: `msg-${Date.now()}`,
+                    senderId,
+                    text: parsedMessage.text || text,
+                    timestamp: new Date(),
+                    read: true,
+                    isEmoji: parsedMessage.isEmoji || false,
+                    isDelivered: true,
+                  },
+                ]);
+              }
+            } catch (e) {
+              // Plain text message
+              const newMessage: Message = {
+                id: `msg-${Date.now()}`,
+                senderId,
+                text,
+                timestamp: new Date(),
+                read: true,
+                isEmoji: text.length <= 4 && !text.includes(" "),
+                isDelivered: true,
+              };
+              setMessages((prev) => [...prev, newMessage]);
+            }
           }
         });
 
@@ -274,12 +176,12 @@ export const ChatInterface = ({
         toast({
           title: "Connection Error",
           description:
-            "Failed to connect to messaging service. Using mock data instead.",
+            "Failed to connect to messaging service. Using local mode instead.",
           status: "error",
           duration: 5000,
           isClosable: true,
         });
-        // Still set connected to true to allow for mock functionality
+        // Still set connected to true to allow for local functionality
         setIsConnected(true);
       } finally {
         setIsConnecting(false);
@@ -355,7 +257,18 @@ export const ChatInterface = ({
 
     try {
       if (agoraRTMService.isReady()) {
-        deliverySuccess = await agoraRTMService.sendMessageToPeer();
+        // For rich messages, we can send a JSON string
+        const messageData = JSON.stringify({
+          text,
+          isEmoji,
+          type: "text",
+          timestamp: new Date().toISOString(),
+        });
+
+        deliverySuccess = await agoraRTMService.sendMessageToPeer(
+          contact.id,
+          messageData
+        );
       }
     } catch (error) {
       console.error("Error sending message via Agora RTM", error);
@@ -376,7 +289,7 @@ export const ChatInterface = ({
       );
     }, 500);
 
-    // For demo: if using mock data or delivery failed, simulate a reply
+    // For demo: if delivery failed, simulate a reply
     if (!deliverySuccess) {
       await simulateReply(text, isEmoji);
     }
@@ -384,7 +297,14 @@ export const ChatInterface = ({
 
   const sendAudioMessage = async () => {
     try {
-      const result = await agoraRTMService.stopAudioRecording();
+      // Stop the recording and get the audio data
+      const result = await audioRecordingService.stopRecording();
+
+      // Upload the audio to get a permanent URL
+      const permanentUrl = await audioRecordingService.uploadAudio(
+        result.blob,
+        result.duration
+      );
 
       // Create new audio message
       const newMessage: Message = {
@@ -395,54 +315,81 @@ export const ChatInterface = ({
         read: false,
         isAudio: true,
         audioDuration: result.duration,
-        audioUrl: result.audioUrl,
+        audioUrl: permanentUrl,
         isDelivered: false,
       };
 
       setMessages((prev) => [...prev, newMessage]);
 
-      // Simulate successful delivery
+      // Try to send via Agora RTM
+      let deliverySuccess = false;
+
+      try {
+        if (agoraRTMService.isReady()) {
+          // Send audio message data as JSON
+          const audioMessageData = JSON.stringify({
+            type: "audio",
+            url: permanentUrl,
+            duration: result.duration,
+            timestamp: new Date().toISOString(),
+          });
+
+          deliverySuccess = await agoraRTMService.sendMessageToPeer(
+            contact.id,
+            audioMessageData
+          );
+        }
+      } catch (error) {
+        console.error("Error sending audio via Agora RTM", error);
+      }
+
+      // Update message delivery status
       setTimeout(() => {
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === newMessage.id
               ? {
                   ...msg,
-                  isDelivered: true,
+                  isDelivered: deliverySuccess,
+                  isFailed: !deliverySuccess,
                 }
               : msg
           )
         );
       }, 500);
 
-      // Simulate reply
-      const delay = 1000 + Math.random() * 2000;
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      // For demo: if delivery failed, simulate a reply
+      if (!deliverySuccess) {
+        // Simulate reply with delay
+        const delay = 1000 + Math.random() * 2000;
+        await new Promise((resolve) => setTimeout(resolve, delay));
 
-      if (Math.random() < 0.7) {
-        const replyOptions = [
-          "Thanks for the voice message!",
-          "I'll listen to it later",
-          "Nice to hear your voice!",
-          "👍",
-          "Got your audio!",
-        ];
+        if (Math.random() < 0.7) {
+          const replyOptions = [
+            "Thanks for the voice message!",
+            "I'll listen to it later",
+            "Nice to hear your voice!",
+            "👍",
+            "Got your audio!",
+          ];
 
-        const replyText =
-          replyOptions[Math.floor(Math.random() * replyOptions.length)];
-        const isEmojiReply = replyText.length <= 4 && !replyText.includes(" ");
+          const replyText =
+            replyOptions[Math.floor(Math.random() * replyOptions.length)];
+          const isEmojiReply =
+            replyText.length <= 4 && !replyText.includes(" ");
 
-        const reply: Message = {
-          id: `msg-${Date.now() + 1}`,
-          senderId: contact.id,
-          text: replyText,
-          timestamp: new Date(),
-          read: false,
-          isEmoji: isEmojiReply,
-          isDelivered: true,
-        };
+          const reply: Message = {
+            id: `msg-${Date.now() + 1}`,
+            senderId: contact.id,
+            text: replyText,
+            timestamp: new Date(),
+            read: false,
+            isEmoji: isEmojiReply,
+            isDelivered: true,
+          };
 
-        setMessages((prev) => [...prev, reply]);
+          setMessages((prev) => [...prev, reply]);
+        }
       }
     } catch (error) {
       console.error("Error sending audio message", error);
@@ -458,7 +405,7 @@ export const ChatInterface = ({
 
   const startRecording = async () => {
     try {
-      const success = await agoraRTMService.startAudioRecording();
+      const success = await audioRecordingService.startRecording();
       if (success) {
         setIsRecording(true);
         toast({
@@ -483,7 +430,7 @@ export const ChatInterface = ({
   };
 
   const cancelRecording = () => {
-    agoraRTMService.cancelAudioRecording();
+    audioRecordingService.cancelRecording();
     setIsRecording(false);
     toast({
       title: "Recording canceled",
