@@ -70,6 +70,9 @@ export const useUserStore = create<UserState>((set, get) => ({
       let provider;
       try {
         provider = new GoogleAuthProvider();
+        // Request additional scopes for profile info
+        provider.addScope("profile");
+        provider.addScope("email");
         console.log("[AUTH_DEBUG] GoogleAuthProvider created successfully");
       } catch (providerError) {
         console.error(
@@ -100,6 +103,14 @@ export const useUserStore = create<UserState>((set, get) => ({
       try {
         result = await signInWithPopup(auth, provider);
         console.log("[AUTH] Google sign-in successful");
+        // Log user profile details for debugging
+        console.log("[AUTH_DEBUG] User profile data:", {
+          displayName: result.user.displayName,
+          email: result.user.email,
+          hasPhotoURL: !!result.user.photoURL,
+          photoURL: result.user.photoURL,
+          uid: result.user.uid,
+        });
       } catch (popupError: any) {
         console.error("[AUTH_DEBUG] signInWithPopup error details:", {
           errorCode: popupError?.code,
@@ -115,6 +126,11 @@ export const useUserStore = create<UserState>((set, get) => ({
       // For demo purposes, randomly assign premium status
       const extendedUser = result.user as ExtendedUser;
       extendedUser.isPremium = Math.random() > 0.7; // 30% chance of being premium
+
+      // Make sure we preserve the photoURL from Google
+      if (result.user.photoURL) {
+        console.log("[AUTH] User has profile image:", result.user.photoURL);
+      }
 
       set({ user: extendedUser, isLoading: false });
     } catch (error: any) {

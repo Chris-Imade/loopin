@@ -241,6 +241,16 @@ const countries = [
   "Zimbabwe",
 ];
 
+// Add this interface for user data
+interface UserData {
+  country: string;
+  allowInternationalMatching: boolean;
+  isPremium: boolean;
+  displayName: string;
+  subscriptionType: string;
+  photoURL?: string;
+}
+
 const ProfilePage = () => {
   const { user, isLoading, signOut } = useUserStore();
   const {
@@ -255,12 +265,13 @@ const ProfilePage = () => {
   const router = useRouter();
   const toast = useToast();
   const [isSaving, setIsSaving] = useState(false);
-  const [userData, setUserData] = useState({
+  const [userData, setUserData] = useState<UserData>({
     country: "",
     allowInternationalMatching: true,
     isPremium: false,
     displayName: "",
     subscriptionType: "",
+    photoURL: "",
   });
   const { colorMode, toggleColorMode } = useColorMode();
 
@@ -330,6 +341,7 @@ const ProfilePage = () => {
         isPremium: user.isPremium || false,
         displayName: user.displayName || "",
         subscriptionType: user.subscriptionType || "",
+        photoURL: user.photoURL || "",
       });
 
       // Load user coins
@@ -497,9 +509,14 @@ const ProfilePage = () => {
             <Avatar
               size="xl"
               name={userData.displayName || user.email}
-              src={user.photoURL || undefined}
+              src={user?.photoURL}
               bg="blue.500"
             />
+            {process.env.NODE_ENV === "development" && user?.photoURL && (
+              <Text fontSize="xs" color="gray.500">
+                Using profile image from: {user.photoURL?.substring(0, 30)}...
+              </Text>
+            )}
             <Heading size="md">{userData.displayName || user.email}</Heading>
             <HStack spacing={2}>
               {userData.isPremium && (

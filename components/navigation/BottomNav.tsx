@@ -51,17 +51,17 @@ const NavItem = ({
         direction="column"
         align="center"
         justify="center"
-        py={2}
-        px={1}
+        py={3}
+        px={2}
         borderRadius="md"
-        bg={isActive ? activeBgColor : "transparent"}
         cursor="pointer"
         position="relative"
         onClick={handleClick}
         role="group"
+        h="70px"
       >
         {isPremiumFeature && !isPremium && (
-          <Box position="absolute" top={0} right={1} color="yellow.400">
+          <Box position="absolute" top={1} right={1} color="yellow.400">
             <SparklesIcon width={12} height={12} />
           </Box>
         )}
@@ -118,19 +118,26 @@ export const BottomNav = () => {
       bg={bgColor}
       boxShadow="0 -4px 6px -1px rgba(0, 0, 0, 0.1)"
     >
-      <Flex justify="space-around" w="100%" maxW="500px" mx="auto" px={2}>
+      <Flex
+        justify="space-around"
+        w="100%"
+        maxW="500px"
+        mx="auto"
+        px={4}
+        py={1}
+      >
         <NavItem
           label="Video"
           href="/"
-          icon={<VideoCameraIconOutline width={24} height={24} />}
-          activeIcon={<VideoCameraIcon width={24} height={24} />}
+          icon={<VideoCameraIconOutline width={22} height={22} />}
+          activeIcon={<VideoCameraIcon width={22} height={22} />}
           isActive={currentPath === "/" || currentPath.startsWith("/video")}
         />
         <NavItem
           label="Messages"
           href="/messages"
-          icon={<ChatBubbleLeftRightIconOutline width={24} height={24} />}
-          activeIcon={<ChatBubbleLeftRightIcon width={24} height={24} />}
+          icon={<ChatBubbleLeftRightIconOutline width={22} height={22} />}
+          activeIcon={<ChatBubbleLeftRightIcon width={22} height={22} />}
           isActive={currentPath.startsWith("/messages")}
           isPremiumFeature={true}
           isPremium={isPremium}
@@ -138,8 +145,8 @@ export const BottomNav = () => {
         <NavItem
           label="Profile"
           href="/profile"
-          icon={<UserCircleIconOutline width={24} height={24} />}
-          activeIcon={<UserCircleIcon width={24} height={24} />}
+          icon={<UserCircleIconOutline width={22} height={22} />}
+          activeIcon={<UserCircleIcon width={22} height={22} />}
           isActive={
             currentPath.startsWith("/profile") ||
             currentPath.startsWith("/coins")
