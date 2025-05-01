@@ -10,6 +10,7 @@ import {
   User,
   AuthError,
 } from "firebase/auth";
+import { getApps } from "firebase/app";
 import { useEffect, useRef, useCallback } from "react";
 import { useToast } from "@chakra-ui/react";
 import { initializeSubscriptionListener } from "../lib/firebase";
@@ -50,15 +51,66 @@ export const useUserStore = create<UserState>((set, get) => ({
   // Sign in with Google
   signInWithGoogle: async () => {
     try {
-      set({ isLoading: true, authError: null });
-      const provider = new GoogleAuthProvider();
-
-      // Configure auth settings to handle COOP policy
-      provider.setCustomParameters({
-        prompt: "select_account",
+      // Debug environment and firebase configuration
+      console.log("[AUTH_DEBUG] Environment check:", {
+        isDevelopment: process.env.NODE_ENV === "development",
+        hasAuth: !!auth,
+        hasFirebaseConfig: !!(auth && auth.app && auth.app.options),
+        authDomain: auth?.app?.options?.authDomain || "not set",
+        currentURL:
+          typeof window !== "undefined"
+            ? window.location.hostname
+            : "not in browser",
       });
 
-      const result = await signInWithPopup(auth, provider);
+      set({ isLoading: true, authError: null });
+      console.log("[AUTH] Starting Google sign-in process");
+
+      // Create provider with error handling
+      let provider;
+      try {
+        provider = new GoogleAuthProvider();
+        console.log("[AUTH_DEBUG] GoogleAuthProvider created successfully");
+      } catch (providerError) {
+        console.error(
+          "[AUTH_DEBUG] Failed to create GoogleAuthProvider:",
+          providerError
+        );
+        throw providerError;
+      }
+
+      // Configure auth settings to handle COOP policy
+      try {
+        provider.setCustomParameters({
+          prompt: "select_account",
+        });
+        console.log("[AUTH_DEBUG] Provider parameters set successfully");
+      } catch (paramError) {
+        console.error(
+          "[AUTH_DEBUG] Failed to set provider parameters:",
+          paramError
+        );
+        throw paramError;
+      }
+
+      console.log("[AUTH] Calling signInWithPopup for Google");
+
+      // Attempt sign in with detailed error tracking
+      let result;
+      try {
+        result = await signInWithPopup(auth, provider);
+        console.log("[AUTH] Google sign-in successful");
+      } catch (popupError: any) {
+        console.error("[AUTH_DEBUG] signInWithPopup error details:", {
+          errorCode: popupError?.code,
+          errorMessage: popupError?.message,
+          errorName: popupError?.name,
+          errorStack: popupError?.stack,
+          authInstance: !!auth,
+          firebaseAppInitialized: getApps().length > 0,
+        });
+        throw popupError;
+      }
 
       // For demo purposes, randomly assign premium status
       const extendedUser = result.user as ExtendedUser;
@@ -66,7 +118,7 @@ export const useUserStore = create<UserState>((set, get) => ({
 
       set({ user: extendedUser, isLoading: false });
     } catch (error: any) {
-      console.error("Google auth error:", error);
+      console.error("Google auth error:", error, error.code);
 
       // Handle specific Firebase auth errors
       let errorMessage = "Failed to sign in with Google";
@@ -79,17 +131,41 @@ export const useUserStore = create<UserState>((set, get) => ({
             errorMessage = "The sign-in popup was closed";
             break;
           case "auth/unauthorized-domain":
-            errorMessage = "This domain isn't authorized for authentication";
+            errorMessage =
+              "This domain isn't authorized for authentication. Try opening the Firebase console and adding this domain to your authorized domains.";
+            // Add logging for unauthorized domain
+            console.warn(
+              "[AUTH] Unauthorized domain detected. Current hostname:",
+              window.location.hostname
+            );
             break;
           case "auth/popup-blocked":
             errorMessage = "Popup was blocked by the browser";
+            console.warn(
+              "[AUTH_DEBUG] Popup was blocked by the browser. Check browser settings."
+            );
             break;
           case "auth/network-request-failed":
             errorMessage = "Network error. Check your internet connection";
+            console.warn(
+              "[AUTH_DEBUG] Network request failed. Check internet connection and firewall settings."
+            );
             break;
           default:
             errorMessage = `Authentication error: ${error.code}`;
         }
+      } else {
+        // Non-Firebase errors or initialization issues
+        console.error(
+          "[AUTH_DEBUG] Non-Firebase error or initialization issue:",
+          {
+            error: error,
+            message: error?.message || "Unknown error",
+            stack: error?.stack || "No stack trace",
+            type: typeof error,
+          }
+        );
+        errorMessage = error?.message || "An unexpected error occurred";
       }
 
       set({
@@ -105,6 +181,7 @@ export const useUserStore = create<UserState>((set, get) => ({
   signInWithApple: async () => {
     try {
       set({ isLoading: true, authError: null });
+      console.log("[AUTH] Starting Apple sign-in process");
       const provider = new OAuthProvider("apple.com");
 
       // Configure auth settings to handle COOP policy
@@ -112,7 +189,9 @@ export const useUserStore = create<UserState>((set, get) => ({
         prompt: "select_account",
       });
 
+      console.log("[AUTH] Calling signInWithPopup for Apple");
       const result = await signInWithPopup(auth, provider);
+      console.log("[AUTH] Apple sign-in successful");
 
       // For demo purposes, randomly assign premium status
       const extendedUser = result.user as ExtendedUser;
@@ -120,7 +199,7 @@ export const useUserStore = create<UserState>((set, get) => ({
 
       set({ user: extendedUser, isLoading: false });
     } catch (error: any) {
-      console.error("Apple auth error:", error);
+      console.error("Apple auth error:", error, error.code);
 
       // Handle specific Firebase auth errors
       let errorMessage = "Failed to sign in with Apple";
@@ -133,7 +212,13 @@ export const useUserStore = create<UserState>((set, get) => ({
             errorMessage = "The sign-in popup was closed";
             break;
           case "auth/unauthorized-domain":
-            errorMessage = "This domain isn't authorized for authentication";
+            errorMessage =
+              "This domain isn't authorized for authentication. Try opening the Firebase console and adding this domain to your authorized domains.";
+            // Add logging for unauthorized domain
+            console.warn(
+              "[AUTH] Unauthorized domain detected. Current hostname:",
+              window.location.hostname
+            );
             break;
           case "auth/popup-blocked":
             errorMessage = "Popup was blocked by the browser";
@@ -159,7 +244,9 @@ export const useUserStore = create<UserState>((set, get) => ({
   signInWithEmail: async (email: string, password: string) => {
     try {
       set({ isLoading: true, authError: null });
+      console.log("[AUTH] Starting email sign-in process");
       const result = await signInWithEmailAndPassword(auth, email, password);
+      console.log("[AUTH] Email sign-in successful");
 
       // For demo purposes, randomly assign premium status
       const extendedUser = result.user as ExtendedUser;
@@ -167,7 +254,7 @@ export const useUserStore = create<UserState>((set, get) => ({
 
       set({ user: extendedUser, isLoading: false });
     } catch (error: any) {
-      console.error("Email auth error:", error);
+      console.error("Email auth error:", error, error.code);
 
       // Handle specific Firebase auth errors
       let errorMessage = "Email sign-in failed";

@@ -5,8 +5,19 @@ import { Layout } from "../components/Layout";
 import { AnimatePresence } from "framer-motion";
 import { useRouter } from "next/router";
 import { extendTheme } from "@chakra-ui/react";
-import { useAuthStateListener, useAuthErrorToast } from "../store/userStore";
+import {
+  useAuthStateListener,
+  useAuthErrorToast,
+  useUserStore,
+} from "../store/userStore";
 import ErrorBoundary from "../components/ErrorBoundary";
+import dynamic from "next/dynamic";
+
+// Only include AuthDebugger in development mode
+const AuthDebugger =
+  process.env.NODE_ENV === "development"
+    ? dynamic(() => import("../components/debug/AuthDebugger"), { ssr: false })
+    : () => null;
 
 // Define the theme
 const theme = extendTheme({
@@ -27,6 +38,8 @@ const theme = extendTheme({
 
 function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
+  const user = useUserStore((state) => state.user);
+  const isAuthenticated = !!user;
 
   // Initialize auth state listener
   useAuthStateListener();
@@ -45,6 +58,8 @@ function MyApp({ Component, pageProps }: AppProps) {
         <AnimatePresence mode="wait" initial={false}>
           {getLayout(<Component {...pageProps} key={router.route} />)}
         </AnimatePresence>
+        {/* Only render AuthDebugger in development */}
+        {process.env.NODE_ENV === "development" && <AuthDebugger />}
       </ErrorBoundary>
     </ChakraProvider>
   );
